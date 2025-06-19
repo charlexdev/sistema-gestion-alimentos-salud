@@ -1,0 +1,26 @@
+# Node.js
+node_modules/
+.env
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Build artifacts
+build/
+dist/
+.vite/
+
+# macOS
+.DS_Store
+
+# VSCode
+.vscode/
+
+# Logs
+*.log
+
+# Misc
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
