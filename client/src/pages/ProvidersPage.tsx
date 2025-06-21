@@ -283,6 +283,9 @@ const ProvidersPage: React.FC = () => {
           </Button>
         </div>
       </div>
+      <p className="mb-2 text-sm text-gray-600">
+        Total de proveedores: {totalItems}
+      </p>
 
       <div className="border rounded-md">
         <Table>

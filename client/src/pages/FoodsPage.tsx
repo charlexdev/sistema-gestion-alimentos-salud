@@ -321,7 +321,7 @@ const FoodsPage: React.FC = () => {
           placeholder="Buscar alimentos..."
           value={searchTerm}
           onChange={handleSearchChange}
-          className="w-full md:w-auto"
+          className="max-w-sm"
         />
         <div className="flex w-full md:w-auto gap-2">
           {userRole === "admin" && (

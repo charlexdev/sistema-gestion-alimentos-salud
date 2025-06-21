@@ -61,6 +61,7 @@ const MedicalCentersPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalItems, setTotalItems] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
@@ -84,6 +85,7 @@ const MedicalCentersPage: React.FC = () => {
       const response: MedicalCenterListResponse =
         await medicalCenterService.getMedicalCenters(params);
       setMedicalCenters(response.medicalCenters);
+      setTotalItems(response.totalCount);
       setTotalPages(response.totalPages);
       setTotalCount(response.totalCount); // Asegúrate de actualizar totalCount
     } catch (error) {
@@ -240,7 +242,16 @@ const MedicalCentersPage: React.FC = () => {
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Gestión de Centros Médicos</h1>
-        <div className="flex space-x-2">
+      </div>
+
+      <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
+        <Input
+          placeholder="Buscar centros médicos..."
+          value={searchQuery}
+          onChange={handleSearchChange}
+          className="max-w-sm"
+        />
+        <div className="flex w-full md:w-auto gap-2">
           <Button onClick={handleCreateClick}>Agregar Centro Médico</Button>
           <Button variant="outline" onClick={handleExportExcel}>
             <DownloadIcon className="mr-2 h-4 w-4" /> Exportar a Excel
@@ -251,13 +262,8 @@ const MedicalCentersPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="mb-4">
-        <Input
-          placeholder="Buscar centros médicos..."
-          value={searchQuery}
-          onChange={handleSearchChange}
-          className="max-w-sm"
-        />
+      <div className="mb-2 text-sm text-gray-600">
+        Total de centros médicos: {totalItems}
       </div>
 
       {medicalCenters.length === 0 && searchQuery === "" && (
