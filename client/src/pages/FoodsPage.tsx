@@ -33,12 +33,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import {
-  DownloadIcon,
-  FileTextIcon,
-  PencilIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { DownloadIcon, FileTextIcon } from "lucide-react";
 
 // === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
 interface ApiError {
@@ -383,20 +378,21 @@ const FoodsPage: React.FC = () => {
                   </TableCell>
                   <TableCell>{food.description || "N/A"}</TableCell>
                   {userRole === "admin" && (
-                    <TableCell className="text-right flex justify-end space-x-2">
+                    <TableCell className="text-right flex justify-end">
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        variant="outline" // <-- Cambiado
+                        size="sm" // <-- Cambiado
                         onClick={() => handleEditClick(food)}
+                        className="mr-2" // <-- Añadido
                       >
-                        <PencilIcon className="h-4 w-4" />
+                        Editar {/* <-- Cambiado de ícono a texto */}
                       </Button>
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        variant="destructive" // <-- Cambiado
+                        size="sm" // <-- Cambiado
                         onClick={() => handleDeleteClick(food)}
                       >
-                        <Trash2Icon className="h-4 w-4" />
+                        Eliminar {/* <-- Cambiado de ícono a texto */}
                       </Button>
                     </TableCell>
                   )}
