@@ -1,19 +1,26 @@
-// client/src/types/food.d.ts o food.ts
-import type { IUnitOfMeasurement } from "./unitOfMeasurement"; // Asegúrate de importar esto
+// client/src/types/food.ts
+
+import type { IUnitOfMeasurement } from "./unitOfMeasurement";
 
 export interface IFood {
   _id: string;
   name: string;
-  // unitOfMeasurement puede ser el ObjectId como string, o el objeto populado
   unitOfMeasurement: string | IUnitOfMeasurement;
   description?: string;
   createdAt: string;
   updatedAt: string;
+  // Si tu backend también devuelve estos campos para alimentos existentes, añádelos aquí.
+  // Pero por el momento, en la respuesta que me has dado no aparecen asociados a cada alimento.
+  // Asegúrate de que tu modelo de alimentos en el backend los tenga y los devuelva si son relevantes.
+  // caloriesPerUnit?: number;
+  // proteinPerUnit?: number;
+  // carbsPerUnit?: number;
+  // fatPerUnit?: number;
 }
 
 export interface FoodFormValues {
   name: string;
-  unitOfMeasurementId: string; // <-- Aquí definimos unitOfMeasurementId para el formulario
+  unitOfMeasurementId: string;
   description?: string;
 }
 
@@ -21,13 +28,14 @@ export interface FoodQueryParams {
   page?: number;
   limit?: number;
   search?: string;
-  // Si deseas filtrar por el ID de la unidad de medida, inclúyelo aquí
-  unitOfMeasurementId?: string; // <-- Agrega esta propiedad para los query params
+  unitOfMeasurementId?: string;
 }
 
+// *** CAMBIO AQUÍ para que coincida con la respuesta de tu backend ***
 export interface FoodListResponse {
-  foods: IFood[];
-  totalCount: number; // El número total de elementos
-  totalPages: number; // El número total de páginas (comúnmente usado para paginación)
+  data: IFood[]; // <--- Cambiado de 'foods' a 'data'
+  totalItems: number; // <--- Cambiado de 'totalCount' a 'totalItems'
+  totalPages: number;
   currentPage: number;
+  itemsPerPage: number; // <--- Añadido, ya que tu backend lo devuelve
 }
