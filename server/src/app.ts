@@ -1,8 +1,15 @@
+// server/src/app.ts
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
-import authRoutes from "./routes/auth.routes"; // <-- Importar rutas de autenticación
+import authRoutes from "./routes/auth.routes";
+import foodRoutes from "./routes/food.routes";
+import unitOfMeasurementRoutes from "./routes/unitOfMeasurement.routes";
+import planRoutes from "./routes/plan.routes";
+import medicalCenterRoutes from "./routes/medicalCenter.routes";
+import providerRoutes from "./routes/provider.routes";
+import foodEntryRoutes from "./routes/foodEntry.routes";
 
 // Cargar variables de entorno desde .env
 dotenv.config();
@@ -10,10 +17,10 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(express.json()); // Para parsear JSON en las peticiones
-app.use(cors()); // Habilitar CORS para permitir peticiones desde el frontend
+app.use(express.json());
+app.use(cors());
 
-// Conexión a la base de datos (ya existente)
+// Conexión a la base de datos
 const connectDB = async () => {
   try {
     const mongoUri = process.env.MONGO_URI;
@@ -35,12 +42,18 @@ app.get("/", (req, res) => {
   res.send("API de Gestión de Alimentos funcionando!");
 });
 
-app.use("/api/auth", authRoutes); // <-- Usar las rutas de autenticación con prefijo /api/auth
+app.use("/api/auth", authRoutes);
+app.use("/api/foods", foodRoutes);
+app.use("/api/units", unitOfMeasurementRoutes);
+app.use("/api/plans", planRoutes);
+app.use("/api/medical-centers", medicalCenterRoutes);
+app.use("/api/providers", providerRoutes);
+app.use("/api/food-entries", foodEntryRoutes);
 
-// Definir el puerto (ya existente)
+// Definir el puerto
 const PORT = process.env.PORT || 5000;
 
-// Iniciar el servidor y conectar a la DB (ya existente)
+// Iniciar el servidor y conectar a la DB
 const startServer = async () => {
   await connectDB();
   app.listen(PORT, () => {

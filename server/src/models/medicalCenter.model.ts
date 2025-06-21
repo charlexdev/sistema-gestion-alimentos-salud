@@ -1,20 +1,26 @@
+// server/src/models/medicalCenter.model.ts
 import { Schema, model, Document } from "mongoose";
 
 export interface IMedicalCenter extends Document {
-  name: string;
-  address?: string;
-  contactPerson?: string;
-  phone?: string;
+  name: string; // Ej: "Hospital General", "Clínica Municipal"
+  address?: string; // Ej: "Calle Principal #123" (opcional)
+  contactInfo?: string; // Ej: "Tel: 555-1234, Email: info@hospital.com" (opcional)
+  createdAt?: Date; // <--- AGREGADO: Para que TypeScript reconozca la propiedad
+  updatedAt?: Date; // <--- AGREGADO: Para que TypeScript reconozca la propiedad
 }
 
-const medicalCenterSchema = new Schema<IMedicalCenter>(
+const MedicalCenterSchema = new Schema<IMedicalCenter>(
   {
-    name: { type: String, required: true, unique: true },
-    address: { type: String },
-    contactPerson: { type: String },
-    phone: { type: String },
+    name: { type: String, required: true, unique: true, trim: true },
+    address: { type: String, required: false, trim: true },
+    contactInfo: { type: String, required: false, trim: true },
   },
   { timestamps: true }
 );
 
-export default model<IMedicalCenter>("MedicalCenter", medicalCenterSchema);
+const MedicalCenter = model<IMedicalCenter>(
+  "MedicalCenter",
+  MedicalCenterSchema
+);
+
+export default MedicalCenter;
