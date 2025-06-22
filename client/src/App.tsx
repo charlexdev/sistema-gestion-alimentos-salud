@@ -10,8 +10,9 @@ import MedicalCentersPage from "./pages/MedicalCentersPage";
 import LoginPage from "./pages/LoginPage";
 import PrivateRoute from "./components/PrivateRoute";
 import UnitsOfMeasurementPage from "./pages/UnitsOfMeasurementPage";
-import ProvidersPage from "./pages/ProvidersPage"; // Importa la página de proveedores
-import FoodsPage from "./pages/FoodsPage"; // NUEVO: Importa la página de Alimentos
+import ProvidersPage from "./pages/ProvidersPage";
+import FoodsPage from "./pages/FoodsPage";
+import PlansPage from "./pages/PlansPage"; // <-- NUEVO: Importa la página de Planes
 
 import { Toaster } from "sonner";
 
@@ -34,9 +35,10 @@ function App() {
               element={<UnitsOfMeasurementPage />}
             />
             <Route path="/providers" element={<ProvidersPage />} />{" "}
-            {/* Ruta para proveedores */}
             <Route path="/foods" element={<FoodsPage />} />{" "}
             {/* NUEVO: Ruta para alimentos */}
+            <Route path="/plans" element={<PlansPage />} />{" "}
+            {/* <-- NUEVO: Ruta para planes */}
             {/* Aquí añadirías todas las demás rutas de tu aplicación que requieren autenticación */}
           </Route>
         </Route>
