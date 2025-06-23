@@ -323,6 +323,10 @@ const UnitsOfMeasurementPage: React.FC = () => {
         </Button>
       </div>
 
+      <div className="mb-2 text-sm text-gray-600">
+        Total de unidades de medida: {totalCount}
+      </div>
+
       {loading ? (
         <p>Cargando unidades de medida...</p>
       ) : error ? (
@@ -406,9 +410,6 @@ const UnitsOfMeasurementPage: React.FC = () => {
               </PaginationItem>
             </PaginationContent>
           </Pagination>
-          <p className="text-sm text-gray-600 mt-2 text-center">
-            Mostrando {units.length} de {totalCount} unidades de medida.
-          </p>
         </>
       )}
 
