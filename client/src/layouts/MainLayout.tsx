@@ -13,7 +13,7 @@ const MainLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   return (
-    <div className="flex w-full flex-1 flex-col overflow-hidden rounded-md border border-border bg-background md:flex-row h-screen">
+    <div className="flex w-full flex-1 flex-col rounded-md border border-border bg-background md:flex-row ">
       <Sidebar open={isSidebarOpen} setOpen={setIsSidebarOpen} animate={true}>
         <SidebarBody>
           <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">

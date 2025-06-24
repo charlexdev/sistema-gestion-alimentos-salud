@@ -14,6 +14,7 @@ import PlansPage from "./pages/PlansPage"; // <-- NUEVO: Importa la página de P
 import ProvidersPage from "./pages/ProvidersPage";
 import UnitsOfMeasurementPage from "./pages/UnitsOfMeasurementPage";
 import { RegisterPage } from "./pages/RegisterPage";
+import DashboardPage from "./pages/DashboardPage";
 
 function App() {
   return (
@@ -39,6 +40,16 @@ function App() {
             <Route path="/plans" element={<PlansPage />} />{" "}
             {/* <-- NUEVO: Ruta para planes */}
             {/* Aquí añadirías todas las demás rutas de tu aplicación que requieren autenticación */}
+          </Route>
+          {/* Grupo de rutas que usan tu layout principal (donde está el sidebar) */}
+          <Route element={<MainLayout />}>
+            {" "}
+            {/* <-- Si tu Sidebar está dentro de MainLayout */}
+            <Route path="/" element={<DashboardPage />} />{" "}
+            {/* O la ruta por defecto que quieras */}
+            <Route path="/dashboard" element={<DashboardPage />} />{" "}
+            {/* <-- ¡Esta línea es CRUCIAL! */}
+            {/* ... otras rutas de la app, como MedicalCentersPage ... */}
           </Route>
         </Route>
 

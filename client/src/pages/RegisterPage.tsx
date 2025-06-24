@@ -47,20 +47,21 @@ export const RegisterPage = () => {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nombre completo</Label>
+              <Label htmlFor="username">Nombre de usuario</Label>{" "}
+              {/* Modificado */}
               <div className="relative">
                 <User className="absolute left-3 top-3 h-4 w-4 text-foreground" />
                 <Input
-                  id="name"
+                  id="username" // Modificado
                   type="text"
-                  placeholder="Ingresa tu nombre completo"
+                  placeholder="Ingresa tu nombre de usuario" // Modificado
                   className="pl-10"
-                  {...register("name")}
+                  {...register("username")} // Modificado
                 />
               </div>
-              {errors.name && (
+              {errors.username && ( // Modificado
                 <p className="text-sm text-destructive">
-                  {errors.name.message}
+                  {errors.username.message} {/* Modificado */}
                 </p>
               )}
             </div>

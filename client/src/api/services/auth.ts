@@ -1,6 +1,7 @@
 // client/src/services/auth.service.ts
 import api from "../../lib/axios"; // Importa la instancia de Axios configurada
 import type { LoginResponse } from "../responses/login-response";
+import type { RegisterResponse } from "../responses/register-response"; // Asumiendo que has creado este tipo
 
 const login = async (
   email: string,
@@ -18,6 +19,26 @@ const login = async (
   } catch (error) {
     console.error("Error en el login:", error);
     throw error; // Propaga el error para que el componente lo maneje
+  }
+};
+
+// NUEVO MÉTODO DE REGISTRO
+const register = async (
+  username: string, // Cambiado de 'name' a 'username'
+  email: string,
+  password: string
+): Promise<RegisterResponse> => {
+  try {
+    // Asumiendo que tu ruta de registro es POST /api/auth/register
+    const response = await api.post<RegisterResponse>("/auth/register", {
+      username, // Se envía 'username'
+      email,
+      password,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error en el registro:", error);
+    throw error;
   }
 };
 
@@ -46,6 +67,7 @@ const getToken = () => {
 
 export default {
   login,
+  register, // Se exporta el nuevo método
   logout,
   getCurrentUser,
   getToken,

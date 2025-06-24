@@ -12,13 +12,11 @@ export const registerUser = async (
     const { username, email, password, role } = req.body;
 
     if (!username || !email || !password) {
-      res
-        .status(400)
-        .json({
-          message:
-            "Por favor, introduce todos los campos requeridos: username, email, password.",
-        });
-      return; // Importante: Salir después de enviar la respuesta
+      res.status(400).json({
+        message:
+          "Por favor, introduce todos los campos requeridos: username, email, password.",
+      });
+      return;
     }
 
     let user = await User.findOne({ email });
@@ -35,11 +33,14 @@ export const registerUser = async (
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
+    // Asegurarse de que el rol es 'admin' o 'user'
+    const finalRole = role === "admin" ? "admin" : "user";
+
     const newUser = new User({
       username,
       email,
       password: hashedPassword,
-      role: role || "user",
+      role: finalRole, // Usar el rol sanitizado
     });
 
     await newUser.save();
@@ -54,11 +55,9 @@ export const registerUser = async (
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       console.error("JWT_SECRET no está definida en las variables de entorno.");
-      res
-        .status(500)
-        .json({
-          message: "Error interno del servidor: JWT_SECRET no configurada.",
-        });
+      res.status(500).json({
+        message: "Error interno del servidor: JWT_SECRET no configurada.",
+      });
       return;
     }
 
@@ -68,19 +67,17 @@ export const registerUser = async (
         res
           .status(500)
           .json({ message: "Error al generar token de autenticación." });
-        return; // Salir del callback si hay error
+        return;
       }
-      res
-        .status(201)
-        .json({
-          token,
-          user: {
-            id: newUser.id,
-            username: newUser.username,
-            email: newUser.email,
-            role: newUser.role,
-          },
-        });
+      res.status(201).json({
+        token,
+        user: {
+          id: newUser.id,
+          username: newUser.username,
+          email: newUser.email,
+          role: newUser.role === "admin" ? "admin" : "user", // <-- Asegurarse de que el rol es "admin" o "user" aquí también
+        },
+      });
     });
   } catch (error: any) {
     console.error("Error al registrar usuario:", error.message);
@@ -91,7 +88,6 @@ export const registerUser = async (
 
 // Función para iniciar sesión
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
-  // Cambiado a Promise<void>
   try {
     const { email, password } = req.body;
 
@@ -124,11 +120,9 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       console.error("JWT_SECRET no está definida en las variables de entorno.");
-      res
-        .status(500)
-        .json({
-          message: "Error interno del servidor: JWT_SECRET no configurada.",
-        });
+      res.status(500).json({
+        message: "Error interno del servidor: JWT_SECRET no configurada.",
+      });
       return;
     }
 
@@ -146,7 +140,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
           id: user.id,
           username: user.username,
           email: user.email,
-          role: user.role,
+          role: user.role === "admin" ? "admin" : "user", // <-- Asegurarse de que el rol es "admin" o "user" aquí
         },
       });
     });
@@ -162,14 +156,11 @@ export const getAuthenticatedUser = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  // Cambiado a Promise<void>
   try {
     if (!req.user || !req.user.id) {
-      res
-        .status(401)
-        .json({
-          message: "Usuario no autenticado o ID de usuario no disponible.",
-        });
+      res.status(401).json({
+        message: "Usuario no autenticado o ID de usuario no disponible.",
+      });
       return;
     }
 
@@ -178,7 +169,13 @@ export const getAuthenticatedUser = async (
       res.status(404).json({ message: "Usuario no encontrado." });
       return;
     }
-    res.json(user);
+    // Cuando el usuario es obtenido directamente de la BD, su rol ya debería ser el tipo correcto
+    res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: user.role === "admin" ? "admin" : "user", // Asegurarse de que el rol sea "admin" o "user" al devolverlo
+    });
   } catch (error: any) {
     console.error("Error al obtener usuario autenticado:", error.message);
     res.status(500).json({ message: "Error interno del servidor." });
