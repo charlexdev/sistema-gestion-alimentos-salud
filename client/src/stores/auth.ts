@@ -31,6 +31,8 @@ const authStore = create<AuthStore>()(
   )
 );
 
+export const getAuthState = authStore.getState;
+
 export const useUser = () => authStore((state) => state.user);
 export const useToken = () => authStore((state) => state.token);
 

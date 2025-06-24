@@ -1,12 +1,11 @@
+import { useUser } from "@/stores/auth";
 import React from "react";
 import { Navigate, Outlet } from "react-router-dom";
-import authService from "../api/services/auth";
 
 const PrivateRoute: React.FC = () => {
-  const currentUser = authService.getCurrentUser();
+  const currentUser = useUser();
 
-  // return currentUser ? <Outlet /> : <Navigate to="/login" />;
-  return <Outlet />;
+  return currentUser ? <Outlet /> : <Navigate to="/login" />;
 };
 
 export default PrivateRoute;
