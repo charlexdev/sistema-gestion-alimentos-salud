@@ -13,47 +13,43 @@ import {
   ResponsiveContainer,
   XAxis,
   YAxis,
-  Tooltip, // Importa Tooltip para tooltips interactivos
+  Legend,
 } from "recharts";
-import { useMedicalCenters } from "@/hooks/useMedicalCenters"; // <-- ¡Importa el hook que creamos!
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart";
+import { useMedicalCenters } from "@/hooks/useMedicalCenters";
 
 const DashboardPage: React.FC = () => {
-  // Obtenemos todos los centros médicos para el dashboard.
-  // NOTA IMPORTANTE: 'limit: 9999' es una forma de intentar obtener todos los datos.
-  // En un entorno de producción con muchos datos, lo ideal sería que tu API ofreciera
-  // un endpoint específico para estadísticas/agregaciones que ya devuelva los datos
-  // resumidos o que permitiera una consulta sin paginación para propósitos de dashboard.
   const {
     data: medicalCenters,
-    isLoading,
-    isError,
-    error,
+    isLoading: isLoadingMedicalCenters,
+    isError: isErrorMedicalCenters,
+    error: errorMedicalCenters,
   } = useMedicalCenters({ page: 1, limit: 9999, search: "" });
 
-  // Procesar los datos para el gráfico
-  // Usamos useMemo para memorizar el resultado y evitar cálculos innecesarios
-  const processedChartData = React.useMemo(() => {
-    if (!medicalCenters) return []; // Si no hay datos, devuelve un array vacío
+  const mockProvidersCount = 75;
+  const mockUnitsCount = 12;
+  const mockPlansCount = 20;
+  const mockFoodsCount = 150;
 
-    // Objeto para contar centros por la primera letra de su nombre (como ejemplo de agregación)
-    const counts: { [key: string]: number } = {};
-    medicalCenters.forEach((center) => {
-      // Asegúrate de que `name` exista y toma la primera letra, conviértela a mayúscula
-      const firstLetter = center.name
-        ? center.name.charAt(0).toUpperCase()
-        : "N/A";
-      counts[firstLetter] = (counts[firstLetter] || 0) + 1;
-    });
+  const isLoading = isLoadingMedicalCenters;
+  const isError = isErrorMedicalCenters;
+  const error = errorMedicalCenters;
 
-    // Convierte el objeto de conteos a un array de objetos apto para Recharts
-    // Ordena alfabéticamente por la letra para una mejor visualización
-    return Object.keys(counts)
-      .sort() // Ordena las letras alfabéticamente
-      .map((letter) => ({
-        letter, // La clave para el eje X
-        count: counts[letter], // El valor para la barra
-      }));
-  }, [medicalCenters]); // Re-calcula solo si `medicalCenters` cambia
+  const systemRecordsChartData = React.useMemo(() => {
+    const medicalCentersCount = medicalCenters?.length || 0;
+
+    return [
+      { category: "Centros Médicos", total: medicalCentersCount },
+      { category: "Proveedores", total: mockProvidersCount },
+      { category: "Unidades de Medida", total: mockUnitsCount },
+      { category: "Planes", total: mockPlansCount },
+      { category: "Alimentos", total: mockFoodsCount },
+    ];
+  }, [medicalCenters]);
 
   if (isLoading) {
     return (
@@ -76,64 +72,78 @@ const DashboardPage: React.FC = () => {
       <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Gráfico 1: Centros Médicos por Inicial del Nombre */}
-        <Card className="col-span-1 md:col-span-2">
-          {" "}
-          {/* El gráfico ocupa más espacio */}
+        <Card className="col-span-1 md:col-span-3">
           <CardHeader>
-            <CardTitle>Centros Médicos por Inicial</CardTitle>
+            <CardTitle>Total de Registros del Sistema</CardTitle>
             <CardDescription>
-              Número de centros médicos agrupados por la primera letra de su
-              nombre.
+              Conteo total de entidades clave en el sistema.
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {processedChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={350}>
-                <BarChart data={processedChartData}>
-                  <XAxis
-                    dataKey="letter" // Usa 'letter' como la clave para el eje X
-                    stroke="#888888"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="#888888"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(value) => `${value}`} // Muestra el conteo directo
-                  />
-                  <Tooltip cursor={{ fill: "transparent" }} />{" "}
-                  {/* Agrega un Tooltip al pasar el ratón */}
-                  <Bar
-                    dataKey="count" // Usa 'count' como el valor para la barra
-                    fill="hsl(var(--primary))"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+            {systemRecordsChartData.length > 0 ? (
+              <ChartContainer
+                config={{
+                  "Centros Médicos": {
+                    label: "Centros Médicos",
+                    color: "oklch(var(--color-chart-1))",
+                  }, // Ajustado a oklch
+                  Proveedores: {
+                    label: "Proveedores",
+                    color: "oklch(var(--color-chart-2))",
+                  }, // Ajustado a oklch
+                  "Unidades de Medida": {
+                    label: "Unidades de Medida",
+                    color: "oklch(var(--color-chart-3))",
+                  }, // Ajustado a oklch
+                  Planes: {
+                    label: "Planes",
+                    color: "oklch(var(--color-chart-4))",
+                  }, // Ajustado a oklch
+                  Alimentos: {
+                    label: "Alimentos",
+                    color: "oklch(var(--color-chart-5))",
+                  }, // Ajustado a oklch
+                  total: { label: "Total", color: "oklch(var(--primary))" }, // Ajustado a oklch
+                }}
+                className="min-h-[400px] w-full"
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={systemRecordsChartData} layout="vertical">
+                    <XAxis
+                      type="number"
+                      stroke="#888888"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="category"
+                      stroke="#888888"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      width={120}
+                    />
+                    <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent />}
+                    />
+                    <Legend />
+                    {/* CAMBIO AQUÍ: Usar oklch() en lugar de hsl() */}
+                    <Bar
+                      dataKey="total"
+                      fill="oklch(var(--chart-1))"
+                      radius={[0, 4, 4, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             ) : (
               <p className="text-center text-muted-foreground">
-                No hay datos de centros médicos para mostrar.
+                No hay datos de registros para mostrar.
               </p>
             )}
-          </CardContent>
-        </Card>
-
-        {/* Puedes añadir más métricas o gráficos aquí, por ejemplo, el total de centros */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Total Centros Médicos</CardTitle>
-            <CardDescription>
-              Número total de centros registrados.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex items-center justify-center h-[200px]">
-            <p className="text-5xl font-bold text-primary">
-              {medicalCenters?.length || 0}
-            </p>
           </CardContent>
         </Card>
       </div>
