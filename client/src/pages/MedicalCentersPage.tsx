@@ -6,7 +6,7 @@ import type {
   MedicalCenterQueryParams,
   MedicalCenterListResponse,
 } from "../types/medicalCenter";
-import medicalCenterService from "../services/medicalCenter.service";
+import medicalCenterService from "../api/services/medical-center";
 import type { AxiosRequestConfig } from "axios";
 import { toast } from "sonner";
 

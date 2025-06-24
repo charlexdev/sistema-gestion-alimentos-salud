@@ -1,4 +1,5 @@
 // client/src/services/api.ts
+import { getAuthState } from "@/stores/auth";
 import axios from "axios";
 
 const api = axios.create({
@@ -11,11 +12,10 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     // La clave 'userToken' debe coincidir con la clave usada al guardar en localStorage
-    const token = localStorage.getItem("userToken");
+    const state = getAuthState();
 
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+    if (state.token) config.headers.Authorization = `Bearer ${state.token}`;
+
     return config;
   },
   (error) => {
@@ -32,8 +32,9 @@ api.interceptors.response.use(
       (error.response.status === 401 || error.response.status === 403)
     ) {
       console.error("Autenticación fallida o token inválido. Limpiando token.");
-      localStorage.removeItem("userToken");
-      localStorage.removeItem("currentUser");
+      const state = getAuthState();
+      state.setToken("");
+      state.setUser(null);
       // Puedes añadir una redirección a '/login' aquí si quieres que el usuario siempre
       // sea redirigido automáticamente al fallar la autenticación en cualquier petición.
       // window.location.href = '/login';

@@ -1,12 +1,12 @@
 // client/src/services/food.service.ts
-import api from "./api"; // Asumiendo que tienes una instancia de Axios configurada
+import api from "../../lib/axios"; // Asumiendo que tienes una instancia de Axios configurada
 
 import type {
   IFood,
   FoodFormValues,
   FoodQueryParams,
   FoodListResponse,
-} from "../types/food";
+} from "../../types/food";
 
 class FoodService {
   private API_URL = "/foods"; // Coincide con la ruta definida en app.ts del backend

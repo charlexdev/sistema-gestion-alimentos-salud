@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale"; // Importar el locale español
 import { Calendar as CalendarIcon } from "lucide-react";
 
-import { cn } from "@/lib/utils"; // Utilidad para concatenar clases de Tailwind CSS
+import { cn } from "@/lib/classname"; // Utilidad para concatenar clases de Tailwind CSS
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {

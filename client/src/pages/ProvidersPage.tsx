@@ -6,7 +6,7 @@ import type {
   ProviderQueryParams,
   ProviderListResponse,
 } from "../types/provider";
-import providerService from "../services/provider.service";
+import providerService from "../api/services/provider";
 import type { AxiosRequestConfig } from "axios";
 import { toast } from "sonner";
 // Importaciones de componentes Shadcn UI

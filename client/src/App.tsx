@@ -1,27 +1,26 @@
 // frontend/src/App.tsx
 import {
+  Navigate,
+  Route,
   BrowserRouter as Router,
   Routes,
-  Route,
-  Navigate,
 } from "react-router-dom";
-import MainLayout from "./layouts/MainLayout";
-import MedicalCentersPage from "./pages/MedicalCentersPage";
-import LoginPage from "./pages/LoginPage";
 import PrivateRoute from "./components/PrivateRoute";
-import UnitsOfMeasurementPage from "./pages/UnitsOfMeasurementPage";
-import ProvidersPage from "./pages/ProvidersPage";
+import MainLayout from "./layouts/MainLayout";
 import FoodsPage from "./pages/FoodsPage";
+import LoginPage from "./pages/LoginPage";
+import MedicalCentersPage from "./pages/MedicalCentersPage";
 import PlansPage from "./pages/PlansPage"; // <-- NUEVO: Importa la página de Planes
-
-import { Toaster } from "sonner";
+import ProvidersPage from "./pages/ProvidersPage";
+import UnitsOfMeasurementPage from "./pages/UnitsOfMeasurementPage";
+import { RegisterPage } from "./pages/RegisterPage";
 
 function App() {
   return (
     <Router>
       <Routes>
-        {/* Ruta para la página de login (no protegida) */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
 
         {/* Grupo de rutas protegidas: solo accesibles si el usuario está autenticado */}
         <Route element={<PrivateRoute />}>
@@ -46,7 +45,6 @@ function App() {
         {/* Ruta para cualquier otra página no encontrada (manejo de 404) */}
         <Route path="*" element={<div>404 - Página no encontrada</div>} />
       </Routes>
-      <Toaster />
     </Router>
   );
 }

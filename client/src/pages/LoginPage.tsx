@@ -1,118 +1,116 @@
-// client/src/pages/LoginPage.tsx
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import authService from "../services/auth.service";
+import { loginSchema, type LoginData } from "@/api/schemas/login";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import type { AxiosRequestConfig } from "axios";
+import { useLogin } from "@/hooks/useLogin";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { Link } from "react-router-dom";
 
-// === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
-// Esta interfaz define la estructura esperada de un error de Axios que incluye una respuesta del servidor.
-// Se ha eliminado 'request?: any;' para evitar el error de ESLint.
-interface AxiosErrorWithResponse<T = unknown> extends Error {
-  isAxiosError: true;
-  response: {
-    data?: T;
-    status: number;
-    statusText: string;
-    headers: Record<string, string | number | string[]>;
-    config: AxiosRequestConfig;
-  };
-  message: string;
-  name: string;
-  stack?: string;
-  code?: string;
-  config: AxiosRequestConfig;
-}
+const LoginPage = () => {
+  const [showPassword, setShowPassword] = useState(false);
+  const { mutate, isPending } = useLogin();
 
-// === FUNCIÓN DE GUARDIA DE TIPO PARA VERIFICAR AxiosError CON RESPUESTA ===
-// Esta función es un "type guard" que nos permite verificar si un valor de tipo 'unknown'
-// es en realidad una instancia de 'AxiosErrorWithResponse'.
-function isAxiosErrorWithData<T = unknown>(
-  error: unknown
-): error is AxiosErrorWithResponse<T> {
-  // Primero, verificamos que el error es un objeto y no es nulo.
-  if (typeof error !== "object" || error === null) {
-    return false;
-  }
-  // Hacemos un "casting" parcial para poder acceder a 'isAxiosError' y 'response'.
-  const potentialAxiosError = error as Partial<AxiosErrorWithResponse<T>>;
-  return (
-    potentialAxiosError.isAxiosError === true && // Comprobamos la bandera de Axios
-    potentialAxiosError.response !== undefined && // Y que tiene una propiedad 'response'
-    potentialAxiosError.response !== null
-  );
-}
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginData>({
+    resolver: zodResolver(loginSchema),
+  });
 
-const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState(""); // Estado para el correo electrónico
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      await authService.login(email, password); // Llama a la función de login con email y password
-      toast.success("¡Inicio de sesión exitoso!");
-      navigate("/medical-centers"); // Redirige a la página de centros médicos tras un login exitoso
-    } catch (error: unknown) {
-      // Captura el error como 'unknown' para mayor seguridad
-      console.error("Login failed:", error);
-      let errorMessage = "Ocurrió un error inesperado al iniciar sesión.";
-
-      // Usa el guardián de tipo para obtener el mensaje de error del backend si está disponible
-      if (isAxiosErrorWithData<{ message: string }>(error)) {
-        // Asume que el backend devuelve un objeto { message: "..." } en caso de error
-        errorMessage =
-          error.response?.data?.message ||
-          "Credenciales inválidas. Inténtalo de nuevo.";
-      }
-      toast.error(errorMessage); // Muestra el mensaje de error al usuario
-    } finally {
-      setLoading(false); // Restablece el estado de carga
-    }
-  };
+  const onSubmit = (data: LoginData) => mutate(data);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md dark:bg-gray-800">
-        <h2 className="text-2xl font-bold text-center text-gray-900 dark:text-white">
-          Iniciar Sesión
-        </h2>
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <Label htmlFor="email">Correo Electrónico</Label>
-            <Input
-              id="email"
-              type="email" // Tipo "email" para validación HTML5 básica
-              placeholder="tu@ejemplo.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)} // Actualiza el estado del email
-              required
-              className="mt-1"
-            />
-          </div>
-          <div>
-            <Label htmlFor="password">Contraseña</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Tu contraseña"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)} // Actualiza el estado de la contraseña
-              required
-              className="mt-1"
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Cargando..." : "Iniciar Sesión"}
-          </Button>
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-xl">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
+          <CardHeader className="space-y-1">
+            <CardTitle className="text-2xl font-bold text-center">
+              Bienvenido
+            </CardTitle>
+            <CardDescription className="text-center">
+              Ingresa tus credenciales para acceder al sistema
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Correo electrónico</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Ingresa tu correo electrónico"
+                  className="pl-10"
+                  {...register("email")}
+                />
+              </div>
+              {errors.email && (
+                <p className="text-sm text-destructive">
+                  {errors.email.message}
+                </p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Contraseña</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-foreground" />
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Ingresa tu contraseña"
+                  className="pl-10 pr-10"
+                  {...register("password")}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-foregroundS" />
+                  )}
+                </Button>
+              </div>
+              {errors.password && (
+                <p className="text-sm text-destructive">
+                  {errors.password.message}
+                </p>
+              )}
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col space-y-4">
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? "Iniciando sesión..." : "Iniciar sesión"}
+            </Button>
+            <p className="text-sm text-center text-foreground">
+              ¿No tienes una cuenta?{" "}
+              <Link
+                to="/register"
+                className="text-primary hover:underline font-medium"
+              >
+                Regístrate
+              </Link>
+            </p>
+          </CardFooter>
         </form>
-      </div>
+      </Card>
     </div>
   );
 };

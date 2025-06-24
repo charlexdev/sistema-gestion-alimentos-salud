@@ -1,15 +1,6 @@
 // client/src/services/auth.service.ts
-import api from "./api"; // Importa la instancia de Axios configurada
-
-interface LoginResponse {
-  token: string;
-  user: {
-    _id: string;
-    email: string; // La autenticación es con email
-    role: "admin" | "user"; // Ajusta esto según los roles que tengas en tu backend
-    // Puedes añadir otros campos del usuario que devuelva tu backend aquí (ej. name, etc.)
-  };
-}
+import api from "../../lib/axios"; // Importa la instancia de Axios configurada
+import type { LoginResponse } from "../responses/login-response";
 
 const login = async (
   email: string,
@@ -23,11 +14,6 @@ const login = async (
       password,
     });
 
-    if (response.data && response.data.token) {
-      localStorage.setItem("userToken", response.data.token); // Clave para el token
-      localStorage.setItem("currentUser", JSON.stringify(response.data.user)); // Almacena los datos del usuario
-      console.log("Token y datos de usuario guardados en localStorage.");
-    }
     return response.data;
   } catch (error) {
     console.error("Error en el login:", error);

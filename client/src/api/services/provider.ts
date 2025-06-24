@@ -1,11 +1,11 @@
 // client/src/services/provider.service.ts
-import api from "./api"; // Importa la instancia global de Axios configurada
+import api from "../../lib/axios"; // Importa la instancia global de Axios configurada
 import type {
   IProvider,
   ProviderFormValues,
   ProviderQueryParams,
   ProviderListResponse,
-} from "../types/provider";
+} from "../../types/provider";
 
 // Ya no necesitas API_BASE_URL ni BASE_URL definidos localmente aquí
 // El baseURL ya está configurado en api.ts
