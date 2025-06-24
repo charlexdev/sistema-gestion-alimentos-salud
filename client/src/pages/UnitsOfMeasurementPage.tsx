@@ -6,7 +6,7 @@ import type {
   UnitOfMeasurementQueryParams,
   UnitOfMeasurementListResponse, // <- Este es el tipo que estamos usando
 } from "../types/unitOfMeasurement";
-import unitOfMeasurementService from "../services/unitOfMeasurement.service";
+import unitOfMeasurementService from "../api/services/unit-measurement";
 import type { AxiosRequestConfig } from "axios";
 import { toast } from "sonner";
 // Importaciones de componentes Shadcn UI

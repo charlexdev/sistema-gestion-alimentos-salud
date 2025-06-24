@@ -2,8 +2,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import type { IFood, FoodFormValues, FoodQueryParams } from "../types/food";
 import type { IUnitOfMeasurement } from "../types/unitOfMeasurement";
-import foodService from "../services/food.service";
-import unitOfMeasurementService from "../services/unitOfMeasurement.service";
+import foodService from "../api/services/food";
+import unitOfMeasurementService from "../api/services/unit-measurement";
 import type { AxiosRequestConfig } from "axios";
 import { toast } from "sonner";
 import {

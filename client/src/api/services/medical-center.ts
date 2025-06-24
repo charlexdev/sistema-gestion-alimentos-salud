@@ -1,11 +1,11 @@
 // client/src/services/medicalCenter.service.ts
-import api from "./api"; // ¡IMPORTA LA INSTANCIA DE AXIOS CONFIGURADA!
+import api from "../../lib/axios"; // ¡IMPORTA LA INSTANCIA DE AXIOS CONFIGURADA!
 import type {
   IMedicalCenter,
   MedicalCenterFormValues,
   MedicalCenterQueryParams,
   MedicalCenterListResponse,
-} from "../types/medicalCenter";
+} from "../../types/medicalCenter";
 
 // Ya no necesitas API_BASE_URL ni BASE_URL aquí, ya que 'api.ts' lo gestiona
 // y las rutas aquí son relativas a la baseURL configurada en 'api.ts'.

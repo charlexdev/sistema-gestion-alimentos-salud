@@ -1,12 +1,12 @@
 // client/src/services/plan.service.ts
-import api from "./api"; // Asumiendo que tienes una instancia de Axios configurada
+import api from "../../lib/axios"; // Asumiendo que tienes una instancia de Axios configurada
 
 import type {
   IPlan,
   PlanFormValues,
   PlanQueryParams,
   PlanListResponse,
-} from "../types/plan";
+} from "../../types/plan";
 
 class PlanService {
   private API_URL = "/plans"; // Coincide con la ruta base definida en plan.routes.ts del backend

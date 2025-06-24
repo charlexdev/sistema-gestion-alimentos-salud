@@ -1,11 +1,11 @@
 // client/src/services/unitOfMeasurement.service.ts
-import api from "./api"; // Asegúrate de que tu instancia de Axios configurada globalmente
+import api from "../../lib/axios"; // Asegúrate de que tu instancia de Axios configurada globalmente
 import type {
   IUnitOfMeasurement,
   UnitOfMeasurementFormValues,
   UnitOfMeasurementQueryParams,
   UnitOfMeasurementListResponse,
-} from "../types/unitOfMeasurement";
+} from "../../types/unitOfMeasurement";
 
 class UnitOfMeasurementService {
   private API_URL = "/units";

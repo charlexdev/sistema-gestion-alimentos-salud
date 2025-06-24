@@ -12,10 +12,10 @@ import type { IMedicalCenter } from "../types/medicalCenter";
 import type { IFood } from "../types/food";
 import type { IProvider } from "../types/provider";
 
-import planService from "../services/plan.service";
-import medicalCenterService from "../services/medicalCenter.service";
-import foodService from "../services/food.service";
-import providerService from "../services/provider.service";
+import planService from "../api/services/plan";
+import medicalCenterService from "../api/services/medical-center";
+import foodService from "../api/services/food";
+import providerService from "../api/services/provider";
 
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
@@ -69,7 +69,7 @@ import {
   DownloadIcon,
   FileTextIcon,
 } from "lucide-react"; // Añadidos DownloadIcon y FileTextIcon
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/classname";
 
 // === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
 interface ApiError {

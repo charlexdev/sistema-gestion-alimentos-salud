@@ -1,7 +1,7 @@
 // frontend/src/components/ui/sidebar-nav.tsx
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { cn } from "../../lib/utils";
+import { cn } from "../../lib/classname";
 import { buttonVariants } from "./button";
 
 interface NavItem {

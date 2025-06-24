@@ -1,7 +1,7 @@
 // client/src/components/Navbar.tsx
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import authService from "../services/auth.service";
+import authService from "../api/services/auth";
 import { Button } from "@/components/ui/button"; // Asumiendo que usas shadcn/ui
 
 const Navbar: React.FC = () => {
