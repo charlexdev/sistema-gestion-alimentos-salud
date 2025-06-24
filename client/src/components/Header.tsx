@@ -17,6 +17,24 @@ export function Header() {
 
   const { logout } = useLogout();
 
+  // Initial check for the user object itself
+  if (!user) {
+    // You might render a skeleton, a loading state, or null
+    return null;
+  }
+
+  // Safely get the user's name, providing a default if it's undefined or null
+  const userName = user.name || "Usuario"; // Default to "Usuario" if user.name is falsy
+  const userRole = user.role || "Desconocido"; // Default for role as well
+
+  // Generate avatar fallback initials, handling cases where userName might still be empty after fallback
+  const avatarInitials =
+    userName
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase() || "UN"; // Add a fallback like 'UN' (Unknown User) if initials are empty
+
   return (
     <header className="border-b bg-background shadow-sm">
       <div className="flex h-16 items-center justify-between px-6">
@@ -29,29 +47,22 @@ export function Header() {
 
         <div className="flex items-center space-x-4">
           <span className="text-sm text-muted-foreground">
-            Bienvenido, {user?.name}
+            Bienvenido, {userName}
           </span>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                 <Avatar className="size-9 border-foreground border-2">
-                  <AvatarFallback>
-                    {user?.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
+                  <AvatarFallback>{avatarInitials}</AvatarFallback>
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end" forceMount>
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">
-                    {user?.name}
-                  </p>
+                  <p className="text-sm font-medium leading-none">{userName}</p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    {user?.role}
+                    {userRole}
                   </p>
                 </div>
               </DropdownMenuLabel>
