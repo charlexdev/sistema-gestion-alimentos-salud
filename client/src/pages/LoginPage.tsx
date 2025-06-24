@@ -58,7 +58,9 @@ const LoginPage = () => {
                 />
               </div>
               {errors.email && (
-                <p className="text-sm text-red-600">{errors.email.message}</p>
+                <p className="text-sm text-destructive">
+                  {errors.email.message}
+                </p>
               )}
             </div>
             <div className="space-y-2">

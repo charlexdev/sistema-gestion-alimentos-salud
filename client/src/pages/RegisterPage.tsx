@@ -149,7 +149,7 @@ export const RegisterPage = () => {
             <Button type="submit" className="w-full" disabled={isPending}>
               {isPending ? "Creando cuenta..." : "Crear cuenta"}
             </Button>
-            <p className="text-sm text-center text-gray-600">
+            <p className="text-sm text-center text-foreground">
               ¿Ya tienes una cuenta?{" "}
               <Link
                 to="/login"
