@@ -1,6 +1,6 @@
 // client/src/pages/UsersPage.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import type { User } from "@/api/schemas/user"; // Asume que esta interfaz tiene 'id: string'
+import type { User } from "@/api/schemas/user";
 import type { UserFormValues, UserQueryParams } from "@/types/user";
 import userService from "@/api/services/user.service";
 import type { AxiosRequestConfig } from "axios";
@@ -96,7 +96,6 @@ const UsersPage: React.FC = () => {
 
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
-  // Modificado para aceptar `_id` también, si `User` no garantiza `id`
   const [currentUser, setCurrentUser] = useState<
     (User & { _id?: string }) | null
   >(null);
@@ -109,7 +108,7 @@ const UsersPage: React.FC = () => {
   });
   const [isEditMode, setIsEditMode] = useState(false);
 
-  const authenticatedUser = useUser();
+  const authenticatedUser = useUser(); // Usuario logueado
   const userRole = authenticatedUser?.role;
 
   const handleAxiosError = useCallback(
@@ -144,11 +143,6 @@ const UsersPage: React.FC = () => {
       };
       const response = await userService.getUsers(params);
 
-      // Asegúrate de que los usuarios tengan una propiedad 'id' o 'user._id'
-      // Si el backend envía '_id', asegúrate de que el frontend lo maneje.
-      // Aquí asumimos que el backend ya envía 'id' gracias a toObject({getters: true})
-      // pero si sigue siendo 'undefined', es un problema del backend o el tipo `User`
-      // para esta situación, User podría necesitar `_id?: string` también.
       setUsers(response.users || []);
       setTotalItems(response.totalItems);
       setTotalPages(response.totalPages);
@@ -195,20 +189,10 @@ const UsersPage: React.FC = () => {
           return;
         }
 
-        // --- INICIO LOGS DE DEPURACIÓN EN handleSubmit (FRONTEND) ---
-        // Usamos currentUser.id si existe, o currentUser._id como fallback
         const userIdToUpdate = currentUser.id || currentUser._id;
-        console.log(
-          "FRONTEND LOG (3): handleSubmit - Modo edición. ID a enviar:",
-          userIdToUpdate
-        );
-        console.log(
-          "FRONTEND LOG (4): handleSubmit - Datos a enviar para actualización:",
-          dataToUpdate
-        );
-        // --- FIN LOGS DE DEPURACIÓN EN handleSubmit (FRONTEND) ---
+        // console.log("FRONTEND LOG (3): handleSubmit - Modo edición. ID a enviar:", userIdToUpdate); // Mantener para depuración si es necesario
+        // console.log("FRONTEND LOG (4): handleSubmit - Datos a enviar para actualización:", dataToUpdate); // Mantener para depuración si es necesario
 
-        // Asegúrate de que userIdToUpdate no sea undefined
         if (!userIdToUpdate) {
           console.error(
             "FRONTEND ERROR: ID de usuario es undefined o null al intentar actualizar."
@@ -251,24 +235,15 @@ const UsersPage: React.FC = () => {
   };
 
   const handleEditClick = (user: User & { _id?: string }) => {
-    // Aseguramos que 'user' pueda tener '_id'
-    // --- INICIO LOGS DE DEPURACIÓN EN handleEditClick (FRONTEND) ---
-    console.log("FRONTEND LOG (1): handleEditClick - Usuario recibido:", user);
-    console.log(
-      "FRONTEND LOG (2): handleEditClick - ID del usuario (user.id):",
-      user.id
-    );
-    console.log(
-      "FRONTEND LOG (2a): handleEditClick - ID del usuario (user._id):",
-      user._id
-    ); // Nuevo log para _id
-    // --- FIN LOGS DE DEPURACIÓN EN handleEditClick (FRONTEND) ---
+    // console.log("FRONTEND LOG (1): handleEditClick - Usuario recibido:", user); // Mantener para depuración si es necesario
+    // console.log("FRONTEND LOG (2): handleEditClick - ID del usuario (user.id):", user.id); // Mantener para depuración si es necesario
+    // console.log("FRONTEND LOG (2a): handleEditClick - ID del usuario (user._id):", user._id); // Mantener para depuración si es necesario
 
     setCurrentUser(user);
     setFormValues({
       username: user.username,
       email: user.email,
-      password: "", // Siempre limpiar la contraseña para edición
+      password: "",
       role: user.role,
     });
     setIsEditMode(true);
@@ -276,7 +251,6 @@ const UsersPage: React.FC = () => {
   };
 
   const handleDeleteClick = (user: User & { _id?: string }) => {
-    // Aseguramos que 'user' pueda tener '_id'
     setCurrentUser(user);
     setIsConfirmDeleteOpen(true);
   };
@@ -284,14 +258,24 @@ const UsersPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (!currentUser) return;
 
+    // Obtiene el ID del usuario que se intenta eliminar, priorizando 'id'
+    const userIdToDelete = currentUser.id || currentUser._id;
+    // Obtiene el ID del usuario logueado
+    const loggedInUserId = authenticatedUser?.id || authenticatedUser?._id; // Usa id o _id para el usuario autenticado también
+
+    // === INICIO CAMBIO PARA IMPEDIR AUTO-ELIMINACIÓN ===
+    if (userIdToDelete === loggedInUserId) {
+      toast.error("No puedes eliminar tu propio usuario.");
+      setIsConfirmDeleteOpen(false);
+      setIsLoading(false); // Asegúrate de que el loading se resetee si estaba activo
+      return;
+    }
+    // === FIN CAMBIO ===
+
     setIsLoading(true);
     setError(null);
     try {
-      // Usamos currentUser.id si existe, o currentUser._id como fallback
-      const userIdToDelete = currentUser.id || currentUser._id;
-
       if (!userIdToDelete) {
-        // Defensive check
         console.error(
           "FRONTEND ERROR: ID de usuario es undefined o null al intentar eliminar."
         );
@@ -434,7 +418,6 @@ const UsersPage: React.FC = () => {
           <TableBody>
             {users.length > 0 ? (
               users.map((user) => (
-                // === Modificado: Usar user.id o user._id para la clave ===
                 <TableRow key={user.id || user._id}>
                   <TableCell className="font-medium">{user.username}</TableCell>
                   <TableCell>{user.email}</TableCell>
@@ -453,7 +436,12 @@ const UsersPage: React.FC = () => {
                         variant="destructive"
                         size="sm"
                         onClick={() => handleDeleteClick(user)}
-                        disabled={user.id === authenticatedUser?.id}
+                        // === Modificado: Deshabilitar si es el usuario logueado ===
+                        disabled={
+                          isLoading ||
+                          (user.id || user._id) ===
+                            (authenticatedUser?.id || authenticatedUser?._id)
+                        }
                       >
                         Eliminar
                       </Button>
@@ -577,8 +565,11 @@ const UsersPage: React.FC = () => {
                   onChange={handleFormChange}
                   className="col-span-3 border rounded-md p-2"
                   required
+                  // === Modificado: Deshabilitar el cambio de rol si es el usuario logueado ===
                   disabled={
-                    isEditMode && currentUser?.id === authenticatedUser?.id
+                    isEditMode &&
+                    (currentUser?.id || currentUser?._id) ===
+                      (authenticatedUser?.id || authenticatedUser?._id)
                   }
                 >
                   <option value="user">Usuario</option>
@@ -616,7 +607,12 @@ const UsersPage: React.FC = () => {
             <Button
               variant="destructive"
               onClick={handleConfirmDelete}
-              disabled={isLoading || currentUser?.id === authenticatedUser?.id}
+              disabled={
+                isLoading ||
+                // === Modificado: Deshabilitar si es el usuario logueado ===
+                (currentUser?.id || currentUser?._id) ===
+                  (authenticatedUser?.id || authenticatedUser?._id)
+              }
             >
               {isLoading ? "Eliminando..." : "Eliminar"}
             </Button>
