@@ -10,49 +10,62 @@ import MainLayout from "./layouts/MainLayout";
 import FoodsPage from "./pages/FoodsPage";
 import LoginPage from "./pages/LoginPage";
 import MedicalCentersPage from "./pages/MedicalCentersPage";
-import PlansPage from "./pages/PlansPage"; // <-- NUEVO: Importa la página de Planes
+import PlansPage from "./pages/PlansPage";
 import ProvidersPage from "./pages/ProvidersPage";
 import UnitsOfMeasurementPage from "./pages/UnitsOfMeasurementPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
+import UsersPage from "./pages/UsersPage"; // <--- ¡IMPORTA TU COMPONENTE USERS PAGE AQUÍ!
+
+// Opcional: Página de Acceso No Autorizado
+const UnauthorizedPage = () => (
+  <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+    <h1 className="text-4xl font-bold text-red-600 mb-4">Acceso Denegado</h1>
+    <p className="text-lg text-gray-800 mb-8">
+      No tienes permiso para acceder a esta página.
+    </p>
+    <a href="/" className="text-blue-600 hover:underline">
+      Volver al inicio
+    </a>
+  </div>
+);
 
 function App() {
   return (
     <Router>
       <Routes>
+        {/* Rutas públicas */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
-
-        {/* Grupo de rutas protegidas: solo accesibles si el usuario está autenticado */}
+        <Route path="/unauthorized" element={<UnauthorizedPage />} />{" "}
+        {/* Nueva ruta para acceso denegado */}
+        {/* Grupo de rutas protegidas y con layout principal */}
         <Route element={<PrivateRoute />}>
-          {/* MainLayout envuelve todas las rutas que requieren el diseño principal y autenticación */}
+          {" "}
+          {/* PrivateRoute para cualquier usuario autenticado */}
           <Route path="/" element={<MainLayout />}>
-            {/* Redirige la ruta raíz a /medical-centers */}
-            <Route index element={<Navigate to="/medical-centers" replace />} />
+            {" "}
+            {/* MainLayout para todas las rutas que lo usan */}
+            {/* Rutas para todos los usuarios autenticados */}
+            <Route index element={<Navigate to="/dashboard" replace />} />{" "}
+            {/* Redirige la raíz a dashboard */}
+            <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/medical-centers" element={<MedicalCentersPage />} />
             <Route
               path="/units-of-measurement"
               element={<UnitsOfMeasurementPage />}
             />
-            <Route path="/providers" element={<ProvidersPage />} />{" "}
-            <Route path="/foods" element={<FoodsPage />} />{" "}
-            {/* NUEVO: Ruta para alimentos */}
-            <Route path="/plans" element={<PlansPage />} />{" "}
-            {/* <-- NUEVO: Ruta para planes */}
-            {/* Aquí añadirías todas las demás rutas de tu aplicación que requieren autenticación */}
-          </Route>
-          {/* Grupo de rutas que usan tu layout principal (donde está el sidebar) */}
-          <Route element={<MainLayout />}>
-            {" "}
-            {/* <-- Si tu Sidebar está dentro de MainLayout */}
-            <Route path="/" element={<DashboardPage />} />{" "}
-            {/* O la ruta por defecto que quieras */}
-            <Route path="/dashboard" element={<DashboardPage />} />{" "}
-            {/* <-- ¡Esta línea es CRUCIAL! */}
-            {/* ... otras rutas de la app, como MedicalCentersPage ... */}
+            <Route path="/providers" element={<ProvidersPage />} />
+            <Route path="/foods" element={<FoodsPage />} />
+            <Route path="/plans" element={<PlansPage />} />
+            {/* Rutas específicas para administradores */}
+            {/* ESTE ES EL CAMBIO CLAVE: Usa PrivateRoute con allowedRoles="admin" y renderiza UsersPage */}
+            <Route element={<PrivateRoute allowedRoles={["admin"]} />}>
+              <Route path="/users" element={<UsersPage />} />{" "}
+              {/* <-- ¡AHORA SÍ USA TU COMPONENTE USERS PAGE! */}
+            </Route>
           </Route>
         </Route>
-
         {/* Ruta para cualquier otra página no encontrada (manejo de 404) */}
         <Route path="*" element={<div>404 - Página no encontrada</div>} />
       </Routes>

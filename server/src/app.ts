@@ -10,6 +10,7 @@ import planRoutes from "./routes/plan.routes";
 import medicalCenterRoutes from "./routes/medicalCenter.routes";
 import providerRoutes from "./routes/provider.routes";
 import foodEntryRoutes from "./routes/foodEntry.routes";
+import userRoutes from "./routes/user.routes";
 
 // Cargar variables de entorno desde .env
 dotenv.config();
@@ -49,6 +50,7 @@ app.use("/api/plans", planRoutes);
 app.use("/api/medical-centers", medicalCenterRoutes);
 app.use("/api/providers", providerRoutes);
 app.use("/api/food-entries", foodEntryRoutes);
+app.use("/api/users", userRoutes);
 
 // Definir el puerto
 const PORT = process.env.PORT || 5000;
