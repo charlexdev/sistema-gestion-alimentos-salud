@@ -99,16 +99,16 @@ export const DesktopSidebar = ({
   return (
     <div
       className={cn(
-        "h-full p-2 hidden shadow-sm border-r md:flex md:flex-col bg-background relative",
+        "h-full py-2 px-2 hidden shadow-sm border-r md:flex md:flex-col bg-background relative", // ¡CAMBIO AQUÍ! 'px-2' para padding horizontal simétrico (8px izquierda y derecha)
         "transition-all duration-300 ease-in-out",
-        open ? "w-[300px] items-start" : "w-[60px] items-center",
+        open ? "w-[300px] items-start" : "w-[60px] items-center", // 'items-center' ya se encarga de centrar el contenido horizontalmente cuando está contraída
         className
       )}
       {...props}
     >
-      {/* Nuevo contenedor para el botón de toggle en la parte superior de la sidebar */}
-      {/* visible solo en desktop, y se oculta en mobile */}
-      <div className="w-full flex justify-end p-2 md:block hidden">
+      {/* Contenedor del botón de toggle. Ahora centrado horizontalmente en la parte superior. */}
+      {/* Se mantiene 'justify-center' para que el botón esté en el centro horizontal. */}
+      <div className="w-full flex justify-center">
         <button
           onClick={() => setOpen((prev) => !prev)}
           className="text-foreground p-1 rounded-full hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
@@ -136,7 +136,7 @@ export const MobileSidebar = ({
         )}
         {...props}
       >
-        {/* Botón de toggle para la sidebar móvil (visible solo en md:hidden) */}
+        {/* Botón de toggle para la sidebar móvil */}
         <div className="flex justify-start z-20 w-full">
           <Menu className="text-foreground" onClick={() => setOpen(!open)} />
         </div>
