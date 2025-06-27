@@ -23,8 +23,6 @@ import {
 } from "@/components/ui/chart";
 import { useMedicalCenters } from "@/hooks/useMedicalCenters";
 import { useFoods } from "@/hooks/useFoods";
-import { useUsersCount } from "@/hooks/useUsersCount";
-import { UsersIcon } from "lucide-react"; // <--- AÑADIDO: Importa el icono de usuarios
 
 // Define la interfaz para los datos del gráfico de pastel
 interface FoodByUnitChartDataItem {
@@ -54,26 +52,17 @@ const DashboardPage: React.FC = () => {
     error: errorFoods,
   } = useFoods({ page: 1, limit: 9999, search: "" });
 
-  const {
-    usersCount,
-    isLoading: isLoadingUsersCount,
-    isError: isErrorUsersCount,
-    error: errorUsersCount,
-  } = useUsersCount();
-
   const mockProvidersCount = 75;
   const mockUnitsCount = 12;
   const mockPlansCount = 20;
 
-  const isLoading =
-    isLoadingMedicalCenters || isLoadingFoods || isLoadingUsersCount;
-  const isError = isErrorMedicalCenters || isErrorFoods || isErrorUsersCount;
-  const error = errorMedicalCenters || errorFoods || errorUsersCount;
+  const isLoading = isLoadingMedicalCenters || isLoadingFoods;
+  const isError = isErrorMedicalCenters || isErrorFoods;
+  const error = errorMedicalCenters || errorFoods;
 
   const systemRecordsChartData = React.useMemo(() => {
     const medicalCentersCount = medicalCenters?.length || 0;
     const actualFoodsCount = foods?.data?.length || 0;
-    const actualUsersCount = usersCount !== null ? usersCount : 0;
 
     return [
       { category: "Centros Médicos", total: medicalCentersCount },
@@ -81,9 +70,8 @@ const DashboardPage: React.FC = () => {
       { category: "Unidades de Medida", total: mockUnitsCount },
       { category: "Planes", total: mockPlansCount },
       { category: "Alimentos", total: actualFoodsCount },
-      { category: "Usuarios", total: actualUsersCount },
     ];
-  }, [medicalCenters, foods, usersCount]);
+  }, [medicalCenters, foods]);
 
   const foodsByUnitChartData = React.useMemo(() => {
     if (!foods?.data || foods.data.length === 0) {
@@ -229,36 +217,6 @@ const DashboardPage: React.FC = () => {
               <p className="text-center text-muted-foreground">
                 No hay datos de registros para mostrar.
               </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* MODIFICADO: Card para Cantidad de Usuarios, ahora más vistoso y pequeño */}
-        <Card className="flex flex-col">
-          {" "}
-          {/* Añadido flex-col para organizar contenido */}
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            {" "}
-            {/* Modificado para alinear título e icono */}
-            <CardTitle className="text-sm font-medium">
-              Cantidad de Usuarios
-            </CardTitle>
-            <UsersIcon className="h-4 w-4 text-muted-foreground" />{" "}
-            {/* Añadido icono */}
-          </CardHeader>
-          <CardContent className="flex-grow flex items-center justify-center p-6 pt-0">
-            {" "}
-            {/* Ajuste de padding */}
-            {isLoadingUsersCount ? (
-              <p className="text-xl text-muted-foreground">Cargando...</p>
-            ) : isErrorUsersCount ? (
-              <p className="text-xl text-destructive">Error</p>
-            ) : (
-              <div className="text-4xl font-bold text-primary">
-                {" "}
-                {/* Reducido el tamaño del texto */}
-                {usersCount !== null ? usersCount : "N/A"}
-              </div>
             )}
           </CardContent>
         </Card>
