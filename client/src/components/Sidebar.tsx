@@ -1,3 +1,4 @@
+// Sidebar.tsx
 import { cn } from "@/lib/classname";
 import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
@@ -79,7 +80,7 @@ export const Sidebar = ({
   );
 };
 
-export const SidebarBody = (props: React.ComponentProps<typeof motion.div>) => {
+export const SidebarBody = (props: React.ComponentProps<"div">) => {
   return (
     <>
       <DesktopSidebar {...props} />
@@ -92,26 +93,32 @@ export const DesktopSidebar = ({
   className,
   children,
   ...props
-}: React.ComponentProps<typeof motion.div>) => {
-  const { open, setOpen, animate } = useSidebar();
+}: React.ComponentProps<"div">) => {
+  const { open, setOpen } = useSidebar();
+
   return (
-    <>
-      <motion.div
-        className={cn(
-          "h-full p-2 hidden shadow-sm border-r  md:flex md:flex-col bg-background w-[300px] shrink-0",
-          className,
-          open ? "items-start" : "items-center"
-        )}
-        animate={{
-          width: animate ? (open ? "300px" : "60px") : "300px",
-        }}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-        {...props}
-      >
-        {children}
-      </motion.div>
-    </>
+    <div
+      className={cn(
+        "h-full p-2 hidden shadow-sm border-r md:flex md:flex-col bg-background relative",
+        "transition-all duration-300 ease-in-out",
+        open ? "w-[300px] items-start" : "w-[60px] items-center",
+        className
+      )}
+      {...props}
+    >
+      {/* Nuevo contenedor para el botón de toggle en la parte superior de la sidebar */}
+      {/* visible solo en desktop, y se oculta en mobile */}
+      <div className="w-full flex justify-end p-2 md:block hidden">
+        <button
+          onClick={() => setOpen((prev) => !prev)}
+          className="text-foreground p-1 rounded-full hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        >
+          {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </button>
+      </div>
+
+      {children}
+    </div>
   );
 };
 
@@ -129,7 +136,8 @@ export const MobileSidebar = ({
         )}
         {...props}
       >
-        <div className="flex justify-end z-20 w-full">
+        {/* Botón de toggle para la sidebar móvil (visible solo en md:hidden) */}
+        <div className="flex justify-start z-20 w-full">
           <Menu className="text-foreground" onClick={() => setOpen(!open)} />
         </div>
         <AnimatePresence>
@@ -170,15 +178,16 @@ export const SidebarSectionGroup = ({
   const { open, animate } = useSidebar();
   return (
     <div className="mb-6">
-      <motion.h4
-        animate={{
-          display: animate ? (open ? "inline-block" : "none") : "inline-block",
-          opacity: animate ? (open ? 1 : 0) : 1,
-        }}
-        className="text-muted-foreground text-xs font-semibold uppercase tracking-wide mb-2 px-2"
+      <h4
+        className={cn(
+          "text-muted-foreground text-xs font-semibold uppercase tracking-wide mb-2 px-2",
+          animate && !open && "hidden opacity-0",
+          animate && open && "inline-block opacity-100",
+          !animate && "inline-block opacity-100"
+        )}
       >
         {section.title}
-      </motion.h4>
+      </h4>
 
       <div className="flex flex-col gap-1">
         {section.items.map((item) => (
@@ -208,15 +217,16 @@ export const SidebarLink = ({
       {...props}
     >
       {link.icon}
-      <motion.span
-        animate={{
-          display: animate ? (open ? "inline-block" : "none") : "inline-block",
-          opacity: animate ? (open ? 1 : 0) : 1,
-        }}
-        className="text-sm text-muted-foreground group-hover/sidebar:translate-x-1 transition duration-150 whitespace-pre"
+      <span
+        className={cn(
+          "text-sm text-muted-foreground group-hover/sidebar:translate-x-1 transition duration-150 whitespace-pre",
+          animate && !open && "hidden opacity-0",
+          animate && open && "inline-block opacity-100",
+          !animate && "inline-block opacity-100"
+        )}
       >
         {link.title}
-      </motion.span>
+      </span>
     </a>
   );
 };

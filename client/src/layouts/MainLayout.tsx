@@ -13,7 +13,6 @@ const MainLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   return (
-    // CAMBIO CLAVE AQUÍ: De 'flex-1' a 'h-screen'
     <div className="flex w-full h-screen rounded-md border border-border bg-background md:flex-row ">
       <Sidebar open={isSidebarOpen} setOpen={setIsSidebarOpen} animate={true}>
         <SidebarBody>
@@ -26,10 +25,9 @@ const MainLayout: React.FC = () => {
           </div>
         </SidebarBody>
       </Sidebar>
-      {/* Añade 'flex flex-col' al contenedor del Header y main para organizar su contenido verticalmente */}
       <div className="w-full h-full bg-background flex flex-col">
+        {/* Ya no se pasan toggleSidebar ni isSidebarOpen al Header */}
         <Header />
-        {/* Añade 'flex-1 overflow-y-auto' a main para que ocupe el espacio restante y tenga scroll si es necesario */}
         <main className="p-6 flex-1 overflow-y-auto">
           <Outlet />
         </main>
