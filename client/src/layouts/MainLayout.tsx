@@ -13,7 +13,8 @@ const MainLayout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   return (
-    <div className="flex w-full flex-1 flex-col rounded-md border border-border bg-background md:flex-row ">
+    // CAMBIO CLAVE AQUÍ: De 'flex-1' a 'h-screen'
+    <div className="flex w-full h-screen rounded-md border border-border bg-background md:flex-row ">
       <Sidebar open={isSidebarOpen} setOpen={setIsSidebarOpen} animate={true}>
         <SidebarBody>
           <div className="flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
@@ -25,9 +26,11 @@ const MainLayout: React.FC = () => {
           </div>
         </SidebarBody>
       </Sidebar>
-      <div className="w-full h-full bg-background">
+      {/* Añade 'flex flex-col' al contenedor del Header y main para organizar su contenido verticalmente */}
+      <div className="w-full h-full bg-background flex flex-col">
         <Header />
-        <main className="p-6">
+        {/* Añade 'flex-1 overflow-y-auto' a main para que ocupe el espacio restante y tenga scroll si es necesario */}
+        <main className="p-6 flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>

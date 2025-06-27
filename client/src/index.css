@@ -110,6 +110,17 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* --- Nuevas reglas añadidas para asegurar altura completa --- */
+html,
+body,
+#root {
+  /* Asumiendo que tu aplicación React se monta en un div con id="root" */
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+/* ----------------------------------------------------------- */
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
