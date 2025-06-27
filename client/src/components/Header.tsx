@@ -24,7 +24,7 @@ export function Header() {
   }
 
   // Safely get the user's name, providing a default if it's undefined or null
-  const userName = user.name || "Usuario"; // Default to "Usuario" if user.name is falsy
+  const userName = user.username || "Usuario"; // Default to "Usuario" if user.name is falsy
   const userRole = user.role || "Desconocido"; // Default for role as well
 
   // Generate avatar fallback initials, handling cases where userName might still be empty after fallback
