@@ -99,15 +99,14 @@ export const DesktopSidebar = ({
   return (
     <div
       className={cn(
-        "h-full py-2 px-2 hidden shadow-sm border-r md:flex md:flex-col bg-background relative", // ¡CAMBIO AQUÍ! 'px-2' para padding horizontal simétrico (8px izquierda y derecha)
+        "h-full pt-4 pb-2 px-2 hidden shadow-sm border-r md:flex md:flex-col bg-background relative", // ¡CAMBIO AQUÍ! 'pt-4' para más padding superior, y 'pb-2' para mantener el inferior
         "transition-all duration-300 ease-in-out",
-        open ? "w-[300px] items-start" : "w-[60px] items-center", // 'items-center' ya se encarga de centrar el contenido horizontalmente cuando está contraída
+        open ? "w-[300px] items-start" : "w-[60px] items-center",
         className
       )}
       {...props}
     >
-      {/* Contenedor del botón de toggle. Ahora centrado horizontalmente en la parte superior. */}
-      {/* Se mantiene 'justify-center' para que el botón esté en el centro horizontal. */}
+      {/* Contenedor del botón de toggle. Centrado horizontalmente en la parte superior. */}
       <div className="w-full flex justify-center">
         <button
           onClick={() => setOpen((prev) => !prev)}
