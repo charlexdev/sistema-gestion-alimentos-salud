@@ -15,7 +15,7 @@ import {
   YAxis,
   Legend,
 } from "recharts";
-import { PieChart, Pie, Cell, Tooltip } from "recharts"; // Se quita 'Payload' de aquí
+import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/chart";
 import { useMedicalCenters } from "@/hooks/useMedicalCenters";
 import { useFoods } from "@/hooks/useFoods";
+import { useUsersCount } from "@/hooks/useUsersCount";
+import { UsersIcon } from "lucide-react"; // <--- AÑADIDO: Importa el icono de usuarios
 
 // Define la interfaz para los datos del gráfico de pastel
 interface FoodByUnitChartDataItem {
@@ -33,13 +35,8 @@ interface FoodByUnitChartDataItem {
 }
 
 // Define una interfaz local para el 'item' que el formatter de Tooltip recibe
-// Esto refleja la estructura interna de Payload de recharts, donde 'payload' es opcional
 interface RechartsTooltipItem {
-  payload?: FoodByUnitChartDataItem; // 'payload' es opcional
-  // Puedes añadir otras propiedades si las necesitas, por ejemplo:
-  // dataKey?: string;
-  // name?: string;
-  // value?: number;
+  payload?: FoodByUnitChartDataItem;
 }
 
 const DashboardPage: React.FC = () => {
@@ -57,17 +54,26 @@ const DashboardPage: React.FC = () => {
     error: errorFoods,
   } = useFoods({ page: 1, limit: 9999, search: "" });
 
+  const {
+    usersCount,
+    isLoading: isLoadingUsersCount,
+    isError: isErrorUsersCount,
+    error: errorUsersCount,
+  } = useUsersCount();
+
   const mockProvidersCount = 75;
   const mockUnitsCount = 12;
   const mockPlansCount = 20;
 
-  const isLoading = isLoadingMedicalCenters || isLoadingFoods;
-  const isError = isErrorMedicalCenters || isErrorFoods;
-  const error = errorMedicalCenters || errorFoods;
+  const isLoading =
+    isLoadingMedicalCenters || isLoadingFoods || isLoadingUsersCount;
+  const isError = isErrorMedicalCenters || isErrorFoods || isErrorUsersCount;
+  const error = errorMedicalCenters || errorFoods || errorUsersCount;
 
   const systemRecordsChartData = React.useMemo(() => {
     const medicalCentersCount = medicalCenters?.length || 0;
     const actualFoodsCount = foods?.data?.length || 0;
+    const actualUsersCount = usersCount !== null ? usersCount : 0;
 
     return [
       { category: "Centros Médicos", total: medicalCentersCount },
@@ -75,8 +81,9 @@ const DashboardPage: React.FC = () => {
       { category: "Unidades de Medida", total: mockUnitsCount },
       { category: "Planes", total: mockPlansCount },
       { category: "Alimentos", total: actualFoodsCount },
+      { category: "Usuarios", total: actualUsersCount },
     ];
-  }, [medicalCenters, foods]);
+  }, [medicalCenters, foods, usersCount]);
 
   const foodsByUnitChartData = React.useMemo(() => {
     if (!foods?.data || foods.data.length === 0) {
@@ -179,6 +186,10 @@ const DashboardPage: React.FC = () => {
                     label: "Alimentos",
                     color: "oklch(var(--color-chart-5))",
                   },
+                  Usuarios: {
+                    label: "Usuarios",
+                    color: "oklch(var(--color-chart-6))",
+                  },
                   total: { label: "Total", color: "oklch(var(--primary))" },
                 }}
                 className="min-h-[250px] w-full"
@@ -208,7 +219,7 @@ const DashboardPage: React.FC = () => {
                     <Legend />
                     <Bar
                       dataKey="total"
-                      fill="oklch(var(--chart-1))"
+                      fill="oklch(var(--color-chart-1))"
                       radius={[0, 4, 4, 0]}
                     />
                   </BarChart>
@@ -218,6 +229,36 @@ const DashboardPage: React.FC = () => {
               <p className="text-center text-muted-foreground">
                 No hay datos de registros para mostrar.
               </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* MODIFICADO: Card para Cantidad de Usuarios, ahora más vistoso y pequeño */}
+        <Card className="flex flex-col">
+          {" "}
+          {/* Añadido flex-col para organizar contenido */}
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            {" "}
+            {/* Modificado para alinear título e icono */}
+            <CardTitle className="text-sm font-medium">
+              Cantidad de Usuarios
+            </CardTitle>
+            <UsersIcon className="h-4 w-4 text-muted-foreground" />{" "}
+            {/* Añadido icono */}
+          </CardHeader>
+          <CardContent className="flex-grow flex items-center justify-center p-6 pt-0">
+            {" "}
+            {/* Ajuste de padding */}
+            {isLoadingUsersCount ? (
+              <p className="text-xl text-muted-foreground">Cargando...</p>
+            ) : isErrorUsersCount ? (
+              <p className="text-xl text-destructive">Error</p>
+            ) : (
+              <div className="text-4xl font-bold text-primary">
+                {" "}
+                {/* Reducido el tamaño del texto */}
+                {usersCount !== null ? usersCount : "N/A"}
+              </div>
             )}
           </CardContent>
         </Card>
@@ -250,15 +291,12 @@ const DashboardPage: React.FC = () => {
                       ))}
                     </Pie>
                     <Tooltip
-                      // Se usa la interfaz RechartsTooltipItem para tipar 'item'
                       formatter={(
                         value: number,
                         name: string,
                         item: RechartsTooltipItem
                       ) => {
-                        // Se accede a 'item.payload' de forma segura ya que es opcional
                         if (item.payload) {
-                          // CAMBIO AQUÍ: value.toFixed(2) para dos decimales
                           return [
                             `${value.toFixed(2)}% (${
                               item.payload.count
@@ -266,7 +304,6 @@ const DashboardPage: React.FC = () => {
                             name,
                           ];
                         }
-                        // CAMBIO AQUÍ: value.toFixed(2) para dos decimales en el fallback
                         return [`${value.toFixed(2)}%`, name];
                       }}
                     />
