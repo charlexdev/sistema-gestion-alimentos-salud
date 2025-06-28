@@ -41,22 +41,30 @@ import {
 import { DownloadIcon, FileTextIcon } from "lucide-react";
 
 // === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
-interface AxiosErrorWithResponse<T = unknown> extends Error {
+interface ApiError {
+  message: string;
+}
+
+interface AxiosErrorWithResponse<T = ApiError> extends Error {
   isAxiosError: true;
   response: {
     data?: T;
     status: number;
     statusText: string;
+    headers?: Record<string, string>;
+    config: AxiosRequestConfig;
+    request?: unknown;
   };
   message: string;
   name: string;
   stack?: string;
   code?: string;
   config: AxiosRequestConfig;
+  request?: unknown;
 }
 
 // === FUNCIÓN DE GUARDIA DE TIPO PARA VERIFICAR AxiosError CON RESPUESTA ===
-function isAxiosErrorWithData<T = unknown>(
+function isAxiosErrorWithData<T = ApiError>(
   error: unknown
 ): error is AxiosErrorWithResponse<T> {
   if (typeof error !== "object" || error === null) {
@@ -70,7 +78,10 @@ function isAxiosErrorWithData<T = unknown>(
 
   if (
     potentialAxiosError.response === undefined ||
-    potentialAxiosError.response === null
+    potentialAxiosError.response.data === undefined ||
+    typeof potentialAxiosError.response.data !== "object" ||
+    potentialAxiosError.response.data === null ||
+    !("message" in potentialAxiosError.response.data)
   ) {
     return false;
   }
@@ -80,11 +91,11 @@ function isAxiosErrorWithData<T = unknown>(
 
 const UnitsOfMeasurementPage: React.FC = () => {
   const [units, setUnits] = useState<IUnitOfMeasurement[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true); // Cambiado de 'loading' a 'isLoading'
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
-  const [totalCount, setTotalCount] = useState<number>(0);
+  const [totalCount, setTotalCount] = useState<number>(0); // Cambiado de 'totalItems' a 'totalCount'
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -98,8 +109,29 @@ const UnitsOfMeasurementPage: React.FC = () => {
     symbol: "",
   });
 
+  const handleAxiosError = useCallback(
+    (error: unknown, entityName: string) => {
+      if (isAxiosErrorWithData(error)) {
+        toast.error(
+          error.response.data?.message ||
+            `Error al ${
+              entityName === "unidades de medida" ? "cargar" : "gestionar"
+            } ${entityName}. Por favor, inténtalo de nuevo.`
+        );
+      } else {
+        toast.error(
+          `Ocurrió un error inesperado al ${
+            entityName === "unidades de medida" ? "cargar" : "gestionar"
+          } ${entityName}. Por favor, inténtalo de nuevo.`
+        );
+      }
+      setError(`Error al ${entityName}.`);
+    },
+    [setError]
+  );
+
   const fetchUnits = useCallback(async () => {
-    setLoading(true);
+    setIsLoading(true);
     setError(null);
     try {
       const params: UnitOfMeasurementQueryParams = {
@@ -107,28 +139,18 @@ const UnitsOfMeasurementPage: React.FC = () => {
         limit: 10,
         search: searchQuery,
       };
-      // Aquí es donde añadimos la anotación de tipo explícita
       const response: UnitOfMeasurementListResponse =
         await unitOfMeasurementService.getUnitsOfMeasurement(params);
       setUnits(response.unitOfMeasurements);
       setTotalPages(response.totalPages);
       setTotalCount(response.totalCount);
     } catch (err: unknown) {
-      console.error("Error fetching units of measurement:", err);
-      if (isAxiosErrorWithData<{ message: string }>(err)) {
-        setError(
-          err.response.data?.message || "Error al cargar unidades de medida."
-        );
-      } else {
-        setError("Ocurrió un error inesperado al cargar unidades de medida.");
-      }
+      handleAxiosError(err, "unidades de medida");
       setUnits([]);
-      setTotalPages(1);
-      setTotalCount(0);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
-  }, [currentPage, searchQuery]);
+  }, [currentPage, searchQuery, handleAxiosError]);
 
   useEffect(() => {
     fetchUnits();
@@ -170,6 +192,8 @@ const UnitsOfMeasurementPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true); // Se agrega para el estado de carga del formulario
+    setError(null);
     try {
       if (currentUnit) {
         // Editar unidad
@@ -186,16 +210,9 @@ const UnitsOfMeasurementPage: React.FC = () => {
       handleModalClose();
       fetchUnits();
     } catch (err: unknown) {
-      console.error("Error saving unit of measurement:", err);
-      if (isAxiosErrorWithData<{ message: string }>(err)) {
-        toast.error(
-          err.response.data?.message || "Error al guardar la unidad de medida."
-        );
-      } else {
-        toast.error(
-          "Ocurrió un error inesperado al guardar la unidad de medida."
-        );
-      }
+      handleAxiosError(err, "unidad de medida");
+    } finally {
+      setIsLoading(false); // Se agrega para finalizar el estado de carga
     }
   };
 
@@ -206,31 +223,44 @@ const UnitsOfMeasurementPage: React.FC = () => {
   };
 
   const handleConfirmDelete = async () => {
-    if (currentUnit) {
-      try {
-        await unitOfMeasurementService.deleteUnitOfMeasurement(currentUnit._id);
-        toast.success("Unidad de medida eliminada exitosamente.");
-        setIsConfirmDeleteOpen(false);
+    if (!currentUnit) return; // Se añade una guarda
+
+    setIsLoading(true); // Se agrega para el estado de carga de la eliminación
+    setError(null);
+    try {
+      await unitOfMeasurementService.deleteUnitOfMeasurement(currentUnit._id);
+      toast.success("Unidad de medida eliminada exitosamente.");
+      setIsConfirmDeleteOpen(false);
+      setCurrentUnit(null); // Limpiar currentUnit después de eliminar
+
+      // Lógica de paginación similar a FoodsPage
+      const newTotalCount = totalCount - 1;
+      const newTotalPages = Math.max(
+        1,
+        Math.ceil(newTotalCount / 10) // 10 es itemsPerPage fijo
+      );
+
+      if (
+        units.length === 1 &&
+        currentPage > 1 &&
+        currentPage > newTotalPages
+      ) {
+        setCurrentPage((prev) => prev - 1);
+      } else if (currentPage > newTotalPages) {
+        setCurrentPage(newTotalPages);
+      } else {
         fetchUnits();
-      } catch (err: unknown) {
-        console.error("Error deleting unit of measurement:", err);
-        if (isAxiosErrorWithData<{ message: string }>(err)) {
-          toast.error(
-            err.response.data?.message ||
-              "Error al eliminar la unidad de medida."
-          );
-        } else {
-          toast.error(
-            "Ocurrió un error inesperado al eliminar la unidad de medida."
-          );
-        }
-        setIsConfirmDeleteOpen(false);
       }
+    } catch (err: unknown) {
+      handleAxiosError(err, "unidad de medida");
+    } finally {
+      setIsLoading(false); // Se agrega para finalizar el estado de carga
     }
   };
 
   // --- Manejadores de Eventos de Exportación ---
-  const handleExportToExcel = async () => {
+  const handleExportToExcel = useCallback(async () => {
+    setIsLoading(true);
     try {
       const params: UnitOfMeasurementQueryParams = {
         search: searchQuery,
@@ -239,28 +269,21 @@ const UnitsOfMeasurementPage: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `UnidadesDeMedida_${new Date()
-        .toISOString()
-        .slice(0, 10)}.xlsx`;
+      a.download = `UnidadesDeMedida_${Date.now()}.xlsx`; // Formato de nombre de archivo similar
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
       toast.success("Reporte de unidades de medida exportado a Excel.");
     } catch (error: unknown) {
-      console.error("Error exporting to Excel:", error);
-      if (isAxiosErrorWithData<{ message: string }>(error)) {
-        toast.error(
-          error.response.data?.message ||
-            "No se pudo exportar el reporte a Excel."
-        );
-      } else {
-        toast.error("Ocurrió un error inesperado al exportar el reporte.");
-      }
+      handleAxiosError(error, "exportar a Excel");
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [searchQuery, handleAxiosError]);
 
-  const handleExportToWord = async () => {
+  const handleExportToWord = useCallback(async () => {
+    setIsLoading(true);
     try {
       const params: UnitOfMeasurementQueryParams = {
         search: searchQuery,
@@ -269,86 +292,95 @@ const UnitsOfMeasurementPage: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `UnidadesDeMedida_${new Date()
-        .toISOString()
-        .slice(0, 10)}.docx`;
+      a.download = `UnidadesDeMedida_${Date.now()}.docx`; // Formato de nombre de archivo similar
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
       toast.success("Reporte de unidades de medida exportado a Word.");
     } catch (error: unknown) {
-      console.error("Error exporting to Word:", error);
-      if (isAxiosErrorWithData<{ message: string }>(error)) {
-        toast.error(
-          error.response.data?.message ||
-            "No se pudo exportar el reporte a Word."
-        );
-      } else {
-        toast.error("Ocurrió un error inesperado al exportar el reporte.");
-      }
+      handleAxiosError(error, "exportar a Word");
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [searchQuery, handleAxiosError]);
+
+  if (isLoading && units.length === 0) {
+    return (
+      <div className="text-center py-4">Cargando unidades de medida...</div>
+    );
+  }
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">Gestión de Unidades de Medida</h1>
-
-      <div className="mb-6 flex flex-wrap gap-4 items-center">
+    <div className="container mx-auto p-4">
+      {" "}
+      {/* Cambiado de py-8 a p-4 */}
+      <h1 className="text-2xl font-bold mb-4">
+        Gestión de Unidades de Medida
+      </h1>{" "}
+      {/* Cambiado de text-3xl a text-2xl y mb-6 a mb-4 */}
+      {error && <div className="text-red-500 mb-4">{error}</div>}{" "}
+      {/* Mostrar errores */}
+      <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
+        {" "}
+        {/* Estructura de FoodsPage */}
         <Input
           type="text"
-          placeholder="Buscar por nombre o símbolo..."
+          placeholder="Buscar por nombre o símbolo"
           value={searchQuery}
           onChange={handleSearchChange}
-          className="max-w-sm flex-1"
+          className="max-w-sm" // Ancho limitado similar
         />
-
-        <Button onClick={handleCreateClick} className="ml-auto">
-          Crear Unidad de Medida
-        </Button>
-        {/* BOTONES DE EXPORTACIÓN */}
-        <Button
-          onClick={handleExportToExcel}
-          variant="outline"
-          className="gap-2"
-        >
-          <DownloadIcon className="size-4" /> Exportar a Excel
-        </Button>
-        <Button
-          onClick={handleExportToWord}
-          variant="outline"
-          className="gap-2"
-        >
-          <FileTextIcon className="size-4" /> Exportar a Word
-        </Button>
+        <div className="flex w-full md:w-auto gap-2">
+          {" "}
+          {/* Agrupación de botones similar */}
+          <Button onClick={handleCreateClick} className="w-full md:w-auto">
+            {" "}
+            {/* Ancho completo en móvil */}
+            Crear Unidad de Medida
+          </Button>
+          <Button
+            onClick={handleExportToExcel}
+            className="w-full md:w-auto" // Ancho completo en móvil
+            variant="outline"
+            disabled={isLoading}
+          >
+            <DownloadIcon className="mr-2 h-4 w-4" /> Excel{" "}
+            {/* Icono y texto */}
+          </Button>
+          <Button
+            onClick={handleExportToWord}
+            className="w-full md:w-auto" // Ancho completo en móvil
+            variant="outline"
+            disabled={isLoading}
+          >
+            <FileTextIcon className="mr-2 h-4 w-4" /> Word {/* Icono y texto */}
+          </Button>
+        </div>
       </div>
-
       <div className="mb-2 text-sm text-gray-600">
         Total de unidades de medida: {totalCount}
       </div>
-
-      {loading ? (
-        <p>Cargando unidades de medida...</p>
-      ) : error ? (
-        <p className="text-red-500">{error}</p>
-      ) : units.length === 0 ? (
-        <p>No se encontraron unidades de medida.</p>
-      ) : (
-        <>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Símbolo</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {units.map((unit) => (
+      <div className="rounded-md border">
+        {" "}
+        {/* Contenedor de tabla con borde */}
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nombre</TableHead>
+              <TableHead>Símbolo</TableHead>
+              <TableHead className="text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {units.length > 0 ? (
+              units.map((unit) => (
                 <TableRow key={unit._id}>
                   <TableCell className="font-medium">{unit.name}</TableCell>
                   <TableCell>{unit.symbol || "N/A"}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right flex justify-end">
+                    {" "}
+                    {/* Flex para botones */}
                     <Button
                       variant="outline"
                       size="sm"
@@ -366,53 +398,55 @@ const UnitsOfMeasurementPage: React.FC = () => {
                     </Button>
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-          <Pagination className="mt-4">
-            <PaginationContent>
-              <PaginationItem>
-                <PaginationPrevious
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  aria-disabled={currentPage <= 1}
-                  tabIndex={currentPage <= 1 ? -1 : undefined}
-                  className={
-                    currentPage <= 1
-                      ? "pointer-events-none opacity-50"
-                      : undefined
-                  }
-                />
-              </PaginationItem>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (page) => (
-                  <PaginationItem key={page}>
-                    <PaginationLink
-                      onClick={() => handlePageChange(page)}
-                      isActive={page === currentPage}
-                    >
-                      {page}
-                    </PaginationLink>
-                  </PaginationItem>
-                )
-              )}
-              <PaginationItem>
-                <PaginationNext
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  aria-disabled={currentPage >= totalPages}
-                  tabIndex={currentPage >= totalPages ? -1 : undefined}
-                  className={
-                    currentPage >= totalPages
-                      ? "pointer-events-none opacity-50"
-                      : undefined
-                  }
-                />
-              </PaginationItem>
-            </PaginationContent>
-          </Pagination>
-        </>
-      )}
-
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={3} className="text-center py-4">
+                  No se encontraron unidades de medida.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </div>
+      <Pagination className="mt-4">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+              aria-disabled={currentPage === 1}
+              tabIndex={currentPage === 1 ? -1 : undefined}
+              className={
+                currentPage === 1 ? "pointer-events-none opacity-50" : undefined
+              }
+            />
+          </PaginationItem>
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+            <PaginationItem key={page}>
+              <PaginationLink
+                onClick={() => handlePageChange(page)}
+                isActive={page === currentPage}
+              >
+                {page}
+              </PaginationLink>
+            </PaginationItem>
+          ))}
+          <PaginationItem>
+            <PaginationNext
+              onClick={() =>
+                handlePageChange(Math.min(totalPages, currentPage + 1))
+              }
+              aria-disabled={currentPage === totalPages}
+              tabIndex={currentPage === totalPages ? -1 : undefined}
+              className={
+                currentPage === totalPages
+                  ? "pointer-events-none opacity-50"
+                  : undefined
+              }
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
       {/* Modal de Creación/Edición */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -428,37 +462,44 @@ const UnitsOfMeasurementPage: React.FC = () => {
                 : "Añade una nueva unidad de medida a tu inventario."}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Nombre
-              </Label>
-              <Input
-                id="name"
-                value={formValues.name}
-                onChange={handleFormChange}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="symbol" className="text-right">
-                Símbolo
-              </Label>
-              <Input
-                id="symbol"
-                value={formValues.symbol}
-                onChange={handleFormChange}
-                className="col-span-3"
-              />
+          <form onSubmit={handleSubmit}>
+            {" "}
+            {/* Eliminar className="grid gap-4 py-4" del form y añadirlo al div */}
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Nombre
+                </Label>
+                <Input
+                  id="name"
+                  value={formValues.name}
+                  onChange={handleFormChange}
+                  className="col-span-3"
+                  required
+                />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="symbol" className="text-right">
+                  Símbolo
+                </Label>
+                <Input
+                  id="symbol"
+                  value={formValues.symbol}
+                  onChange={handleFormChange}
+                  className="col-span-3"
+                />
+              </div>
             </div>
             <DialogFooter>
-              <Button type="submit">Guardar cambios</Button>
+              <Button type="submit" disabled={isLoading}>
+                {" "}
+                {/* Deshabilitar si está cargando */}
+                {isLoading ? "Guardando..." : "Guardar cambios"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-
       {/* Modal de Confirmación de Eliminación */}
       <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
         <DialogContent>
@@ -473,11 +514,16 @@ const UnitsOfMeasurementPage: React.FC = () => {
             <Button
               variant="outline"
               onClick={() => setIsConfirmDeleteOpen(false)}
+              disabled={isLoading}
             >
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
-              Eliminar
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isLoading}
+            >
+              {isLoading ? "Eliminando..." : "Eliminar"}
             </Button>
           </DialogFooter>
         </DialogContent>
