@@ -108,10 +108,9 @@ const UsersPage: React.FC = () => {
   });
   const [isEditMode, setIsEditMode] = useState(false);
 
-  // CORRECTED: Type for roleFilter
   const [roleFilter, setRoleFilter] = useState<"admin" | "user" | "">("");
 
-  const authenticatedUser = useUser(); // Usuario logueado
+  const authenticatedUser = useUser();
   const userRole = authenticatedUser?.role;
 
   const handleAxiosError = useCallback(
@@ -375,12 +374,10 @@ const UsersPage: React.FC = () => {
           onChange={handleSearchChange}
           className="max-w-sm"
         />
-        {/* Updated Select element for Role Filter with dark mode styles */}
         <select
           id="roleFilter"
           value={roleFilter}
           onChange={handleRoleFilterChange}
-          // Added/modified classes for dark mode compatibility and outline style
           className="max-w-sm border border-input bg-background text-foreground rounded-md p-2 h-10 ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
         >
           <option value="">Todos los Roles</option>
@@ -576,7 +573,8 @@ const UsersPage: React.FC = () => {
                   id="role"
                   value={formValues.role}
                   onChange={handleFormChange}
-                  className="col-span-3 border rounded-md p-2"
+                  // UPDATED: Added classes for consistency with Input and dark mode
+                  className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   required
                   disabled={
                     isEditMode &&
