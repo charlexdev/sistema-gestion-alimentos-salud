@@ -9,6 +9,7 @@ import type {
 import unitOfMeasurementService from "../api/services/unit-measurement";
 import type { AxiosRequestConfig } from "axios";
 import { toast } from "sonner";
+// Importaciones de componentes Shadcn UI
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -36,7 +37,11 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+// Importa íconos de lucide-react para exportar
 import { DownloadIcon, FileTextIcon } from "lucide-react";
+
+// Import useUser hook from auth store (NEW)
+import { useUser } from "@/stores/auth"; //
 
 // === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
 interface ApiError {
@@ -106,6 +111,10 @@ const UnitsOfMeasurementPage: React.FC = () => {
     name: "",
     symbol: "",
   });
+
+  // Get the logged-in user from the Zustand store (NEW)
+  const user = useUser(); //
+  const isAdmin = user?.role === "admin"; // Check if the user has the 'admin' role
 
   const handleAxiosError = useCallback(
     (error: unknown, entityName: string) => {
@@ -209,8 +218,6 @@ const UnitsOfMeasurementPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
-    // --- Símbolo validation (max 5 characters) ---
-    // Using non-null assertion operator (!) as formValues.symbol is always a string.
     if (formValues.symbol!.length > 5) {
       toast.error("El símbolo no puede tener más de 5 caracteres.");
       setIsLoading(false);
@@ -342,9 +349,11 @@ const UnitsOfMeasurementPage: React.FC = () => {
         />
 
         <div className="flex w-full md:w-auto gap-2">
-          <Button onClick={handleCreateClick} className="w-full md:w-auto">
-            Crear Unidad de Medida
-          </Button>
+          {isAdmin && ( // Conditional rendering for "Crear Unidad de Medida" button
+            <Button onClick={handleCreateClick} className="w-full md:w-auto">
+              Crear Unidad de Medida
+            </Button>
+          )}
           <Button
             onClick={handleExportToExcel}
             className="w-full md:w-auto"
@@ -374,7 +383,9 @@ const UnitsOfMeasurementPage: React.FC = () => {
             <TableRow>
               <TableHead>Nombre</TableHead>
               <TableHead>Símbolo</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              {isAdmin && ( // Conditional rendering for "Acciones" table header
+                <TableHead className="text-right">Acciones</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -383,28 +394,33 @@ const UnitsOfMeasurementPage: React.FC = () => {
                 <TableRow key={unit._id}>
                   <TableCell className="font-medium">{unit.name}</TableCell>
                   <TableCell>{unit.symbol || "N/A"}</TableCell>
-                  <TableCell className="text-right flex justify-end">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditClick(unit)}
-                      className="mr-2"
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteClick(unit)}
-                    >
-                      Eliminar
-                    </Button>
-                  </TableCell>
+                  {isAdmin && ( // Conditional rendering for "Acciones" table cells
+                    <TableCell className="text-right flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditClick(unit)}
+                        className="mr-2"
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteClick(unit)}
+                      >
+                        Eliminar
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={3} className="text-center py-4">
+                <TableCell
+                  colSpan={isAdmin ? 3 : 2} // Adjust colspan based on isAdmin
+                  className="text-center py-4"
+                >
                   No se encontraron unidades de medida.
                 </TableCell>
               </TableRow>
@@ -452,7 +468,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
         </PaginationContent>
       </Pagination>
 
-      {/* Modal de Creación/Edición */}
+      {/* Modal de Creación/Edición (Only admins can open, so no need for isAdmin check here) */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -503,7 +519,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Confirmación de Eliminación */}
+      {/* Modal de Confirmación de Eliminación (Only admins can open, so no need for isAdmin check here) */}
       <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
         <DialogContent>
           <DialogHeader>
