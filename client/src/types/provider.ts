@@ -3,7 +3,9 @@
 export interface IProvider {
   _id: string;
   name: string;
-  contactInfo?: string;
+  // Estos campos reemplazan o complementan a 'contactInfo'
+  email?: string;
+  phoneNumber?: string; // Número de teléfono fijo de 8 dígitos
   address?: string;
   createdAt: string;
   updatedAt: string;
@@ -11,7 +13,9 @@ export interface IProvider {
 
 export interface ProviderFormValues {
   name: string;
-  contactInfo?: string;
+  // Estos campos reflejan los datos que se enviarán en el formulario
+  email?: string;
+  phoneNumber?: string;
   address?: string;
 }
 
@@ -22,7 +26,6 @@ export interface ProviderQueryParams {
   // Añade cualquier otro parámetro de consulta aquí, ej. sortBy, sortOrder
 }
 
-// **ESTE ES EL CAMBIO CLAVE**
 export interface ProviderListResponse {
   data: IProvider[]; // Un array de objetos IProvider
   totalItems: number; // El número total de elementos

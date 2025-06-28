@@ -1,43 +1,11 @@
 // client/src/pages/ProvidersPage.tsx
 import React, { useState, useEffect, useCallback } from "react";
-// Importamos los tipos directamente aquí para la demostración
-// Idealmente, estos tipos deberían provenir de '../types/provider'
-// Si estos tipos ya existen en tu archivo ../types/provider.ts,
-// debes actualizar ese archivo y luego eliminar estas definiciones locales.
-
-// === DEFINICIÓN LOCAL DE TIPOS ACTUALIZADOS ===
-interface IProvider {
-  _id: string;
-  name: string;
-  email?: string; // Nuevo campo para el correo
-  phoneNumber?: string; // Nuevo campo para el número de teléfono fijo
-  address?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-interface ProviderFormValues {
-  name: string;
-  email?: string; // Nuevo campo en el formulario
-  phoneNumber?: string; // Nuevo campo en el formulario
-  address: string;
-}
-
-interface ProviderQueryParams {
-  page?: number;
-  limit?: number;
-  search?: string;
-}
-
-interface ProviderListResponse {
-  data: IProvider[];
-  totalPages: number;
-  totalItems: number;
-  currentPage: number;
-}
-
-// Fin de la definición de tipos locales (reemplazar por importación si ya existen)
-
+import type {
+  IProvider,
+  ProviderFormValues,
+  ProviderQueryParams,
+  ProviderListResponse,
+} from "../types/provider"; // Asegúrate de que estos tipos estén correctamente definidos en tu archivo ../types/provider.ts, incluyendo email y phoneNumber.
 import providerService from "../api/services/provider";
 import type { AxiosRequestConfig } from "axios";
 import { toast } from "sonner";
@@ -72,7 +40,7 @@ import {
 // Importa íconos de lucide-react para exportar
 import { DownloadIcon, FileTextIcon } from "lucide-react";
 
-// === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
+// === DEFINICIÓN DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
 // Esto permite acceder a `error.response.data` de forma segura.
 interface AxiosErrorWithResponse<T = unknown> extends Error {
   isAxiosError: true;
@@ -96,7 +64,6 @@ function isAxiosErrorWithData<T = { message?: string }>(
   if (typeof error !== "object" || error === null) {
     return false;
   }
-  // Se asume que `error` podría ser un AxiosError
   const potentialAxiosError = error as Partial<AxiosErrorWithResponse<T>>;
   return (
     potentialAxiosError.isAxiosError === true &&
@@ -104,6 +71,9 @@ function isAxiosErrorWithData<T = { message?: string }>(
     potentialAxiosError.response !== null
   );
 }
+
+// === IMPORTACIÓN: useUser hook desde auth store ===
+import { useUser } from "@/stores/auth";
 
 const ProvidersPage: React.FC = () => {
   const [providers, setProviders] = useState<IProvider[]>([]);
@@ -124,6 +94,10 @@ const ProvidersPage: React.FC = () => {
     address: "",
   });
 
+  // === OBTENER EL USUARIO Y SU ROL DESDE EL HOOK useUser ===
+  const user = useUser(); // <--- ¡Línea corregida aquí!
+  const isAdmin = user?.role === "admin"; // Determinamos si el usuario es administrador
+
   const limit = 10; // Número de elementos por página
 
   // `useCallback` para memorizar la función y evitar re-renders innecesarios
@@ -134,7 +108,6 @@ const ProvidersPage: React.FC = () => {
         limit: limit,
         search: searchQuery,
       };
-      // La respuesta del servicio `getProviders` debe coincidir con `ProviderListResponse`
       const response: ProviderListResponse = await providerService.getProviders(
         params
       );
@@ -143,7 +116,6 @@ const ProvidersPage: React.FC = () => {
       setTotalItems(response.totalItems);
     } catch (error) {
       console.error("Error al obtener proveedores:", error);
-      // Muestra un toast con un mensaje de error genérico o específico si es un error de Axios
       if (isAxiosErrorWithData(error)) {
         toast.error(
           error.response?.data?.message || "Error al cargar los proveedores."
@@ -176,18 +148,16 @@ const ProvidersPage: React.FC = () => {
 
   const handleCreateClick = () => {
     setCurrentProvider(null);
-    // Inicializar los nuevos campos como vacíos para un nuevo proveedor
     setFormValues({ name: "", email: "", phoneNumber: "", address: "" });
     setIsFormOpen(true);
   };
 
   const handleEditClick = (provider: IProvider) => {
     setCurrentProvider(provider);
-    // Rellenar los campos del formulario con los datos del proveedor existente
     setFormValues({
       name: provider.name,
-      email: provider.email || "", // Usar el nuevo campo 'email'
-      phoneNumber: provider.phoneNumber || "", // Usar el nuevo campo 'phoneNumber'
+      email: provider.email || "",
+      phoneNumber: provider.phoneNumber || "",
       address: provider.address || "",
     });
     setIsFormOpen(true);
@@ -201,24 +171,19 @@ const ProvidersPage: React.FC = () => {
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Aseguramos que email y phoneNumber sean strings no nulos/undefined para las validaciones.
     const email = formValues.email?.trim() || "";
     const phoneNumber = formValues.phoneNumber?.trim() || "";
 
-    // Regex para validar email (básico, puedes ajustarlo para ser más estricto)
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-    // Regex para validar número de teléfono fijo de 8 dígitos
     const phoneRegex = /^\d{8}$/;
 
-    let isValid = true; // Bandera para controlar la validez del formulario
+    let isValid = true;
 
-    // Validación: Al menos un método de contacto debe ser introducido
     if (!email && !phoneNumber) {
       toast.error("Introduzca al menos un método de contacto.");
       isValid = false;
     }
 
-    // Validación del Email si se proporcionó
     if (email) {
       if (!emailRegex.test(email)) {
         toast.error("El formato del correo electrónico es inválido.");
@@ -230,9 +195,7 @@ const ProvidersPage: React.FC = () => {
       }
     }
 
-    // Validación del Número de Teléfono Fijo si se proporcionó
     if (phoneNumber) {
-      // El regex /^\d{8}$/ ya asegura que tenga exactamente 8 dígitos.
       if (!phoneRegex.test(phoneNumber)) {
         toast.error(
           "El número de teléfono fijo debe tener exactamente 8 dígitos."
@@ -241,23 +204,20 @@ const ProvidersPage: React.FC = () => {
       }
     }
 
-    // Si alguna validación falló, detener el envío del formulario
     if (!isValid) {
       return;
     }
 
     try {
       if (currentProvider) {
-        // Enviar los nuevos formValues con email y phoneNumber
         await providerService.updateProvider(currentProvider._id, formValues);
         toast.success("Proveedor actualizado exitosamente.");
       } else {
-        // Enviar los nuevos formValues con email y phoneNumber
         await providerService.createProvider(formValues);
         toast.success("Proveedor creado exitosamente.");
       }
       setIsFormOpen(false);
-      fetchProviders(); // Recargar la lista después de crear/actualizar
+      fetchProviders();
     } catch (error) {
       console.error("Error al guardar proveedor:", error);
       if (isAxiosErrorWithData(error)) {
@@ -277,7 +237,6 @@ const ProvidersPage: React.FC = () => {
         toast.success("Proveedor eliminado exitosamente.");
         setIsConfirmDeleteOpen(false);
 
-        // Lógica para navegar a la página anterior si la página actual queda vacía
         const updatedTotalItems = totalItems - 1;
 
         if (
@@ -285,20 +244,15 @@ const ProvidersPage: React.FC = () => {
           currentPage > 1 &&
           updatedTotalItems > 0
         ) {
-          // Si este era el último elemento en la página actual y no la primera página,
-          // y aún quedan elementos en total, ir a la página anterior.
           setCurrentPage(currentPage - 1);
         } else if (updatedTotalItems === 0) {
-          // Si todos los elementos son eliminados, reiniciar a la página 1
           setCurrentPage(1);
         } else {
-          // De lo contrario, simplemente volver a cargar los proveedores para la página actual
           fetchProviders();
         }
       } catch (error) {
         console.error("Error al eliminar proveedor:", error);
         if (isAxiosErrorWithData(error)) {
-          // Acceder a .data.message de forma segura
           toast.error(
             error.response?.data?.message || "Error al eliminar el proveedor."
           );
@@ -312,8 +266,8 @@ const ProvidersPage: React.FC = () => {
   const handleExportExcel = async () => {
     try {
       const params: ProviderQueryParams = {
-        page: 1, // Para exportar, usualmente se quiere todo, o se aplica el filtro actual
-        limit: totalItems > 0 ? totalItems : 10000, // Obtener todos los items para exportar, o un número grande si totalItems es 0
+        page: 1,
+        limit: totalItems > 0 ? totalItems : 10000,
         search: searchQuery,
       };
       const data = await providerService.exportProvidersToExcel(params);
@@ -341,7 +295,7 @@ const ProvidersPage: React.FC = () => {
     try {
       const params: ProviderQueryParams = {
         page: 1,
-        limit: totalItems > 0 ? totalItems : 10000, // Obtener todos los items para exportar
+        limit: totalItems > 0 ? totalItems : 10000,
         search: searchQuery,
       };
       const data = await providerService.exportProvidersToWord(params);
@@ -377,7 +331,10 @@ const ProvidersPage: React.FC = () => {
           className="max-w-sm"
         />
         <div className="flex space-x-2">
-          <Button onClick={handleCreateClick}>Agregar Nuevo Proveedor</Button>
+          {/* BOTÓN "AGREGAR NUEVO PROVEEDOR" - Visible solo para administradores */}
+          {isAdmin && (
+            <Button onClick={handleCreateClick}>Agregar Nuevo Proveedor</Button>
+          )}
           <Button variant="outline" onClick={handleExportExcel}>
             <DownloadIcon className="mr-2 h-4 w-4" /> Exportar a Excel
           </Button>
@@ -398,7 +355,10 @@ const ProvidersPage: React.FC = () => {
               <TableHead>Correo Electrónico</TableHead>
               <TableHead>Teléfono Fijo</TableHead>
               <TableHead>Dirección</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              {/* COLUMNA DE ACCIONES - Visible solo para administradores */}
+              {isAdmin && (
+                <TableHead className="text-right">Acciones</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -406,34 +366,35 @@ const ProvidersPage: React.FC = () => {
               providers.map((provider) => (
                 <TableRow key={provider._id}>
                   <TableCell className="font-medium">{provider.name}</TableCell>
-                  <TableCell>{provider.email || "N/A"}</TableCell>{" "}
-                  {/* CAMBIO: Mostrar "N/A" si no hay email */}
-                  <TableCell>{provider.phoneNumber || "N/A"}</TableCell>{" "}
-                  {/* CAMBIO: Mostrar "N/A" si no hay teléfono */}
-                  <TableCell>{provider.address || "N/A"}</TableCell>{" "}
-                  {/* CAMBIO: Mostrar "N/A" si no hay dirección */}
-                  <TableCell className="text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditClick(provider)}
-                      className="mr-2"
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteClick(provider)}
-                    >
-                      Eliminar
-                    </Button>
-                  </TableCell>
+                  <TableCell>{provider.email || "N/A"}</TableCell>
+                  <TableCell>{provider.phoneNumber || "N/A"}</TableCell>
+                  <TableCell>{provider.address || "N/A"}</TableCell>
+                  {/* BOTONES DE EDITAR Y ELIMINAR EN CADA FILA - Visibles solo para administradores */}
+                  {isAdmin && (
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditClick(provider)}
+                        className="mr-2"
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteClick(provider)}
+                      >
+                        Eliminar
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={5} className="text-center">
+                {/* Ajustar el colSpan si la columna de acciones se oculta */}
+                <TableCell colSpan={isAdmin ? 5 : 4} className="text-center">
                   No hay proveedores.
                 </TableCell>
               </TableRow>
@@ -491,7 +452,6 @@ const ProvidersPage: React.FC = () => {
                 : "Añade un nuevo proveedor a tu base de datos."}
             </DialogDescription>
           </DialogHeader>
-          {/* Formulario con la nueva estructura de cuadrícula */}
           <form
             onSubmit={handleFormSubmit}
             className="grid grid-cols-[auto_1fr] items-center gap-4 py-4"
@@ -506,7 +466,6 @@ const ProvidersPage: React.FC = () => {
               required
             />
 
-            {/* Sección de Información de Contacto - abarca ambas columnas */}
             <h4 className="col-span-2 text-left text-sm font-semibold mt-2 mb-1">
               Información de Contacto
             </h4>
