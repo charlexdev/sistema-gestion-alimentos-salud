@@ -65,7 +65,7 @@ function isAxiosErrorWithData<T = { message?: string }>(
     return false;
   }
   // Se asume que `error` podría ser un AxiosError
-  const potentialAxiosError = error as Partial<AxiosErrorWithResponse<T>>;
+  const potentialAxiosError = error as Partial<AxiosErrorWithResponse<T>>; // <-- CORRECCIÓN AQUÍ
   return (
     potentialAxiosError.isAxiosError === true &&
     potentialAxiosError.response !== undefined &&
@@ -191,7 +191,25 @@ const ProvidersPage: React.FC = () => {
         await providerService.deleteProvider(currentProvider._id);
         toast.success("Proveedor eliminado exitosamente.");
         setIsConfirmDeleteOpen(false);
-        fetchProviders(); // Recargar la lista después de eliminar
+
+        // Lógica para navegar a la página anterior si la página actual queda vacía
+        const updatedTotalItems = totalItems - 1;
+
+        if (
+          providers.length === 1 &&
+          currentPage > 1 &&
+          updatedTotalItems > 0
+        ) {
+          // Si este era el último elemento en la página actual y no la primera página,
+          // y aún quedan elementos en total, ir a la página anterior.
+          setCurrentPage(currentPage - 1);
+        } else if (updatedTotalItems === 0) {
+          // Si todos los elementos son eliminados, reiniciar a la página 1
+          setCurrentPage(1);
+        } else {
+          // De lo contrario, simplemente volver a cargar los proveedores para la página actual
+          fetchProviders();
+        }
       } catch (error) {
         console.error("Error al eliminar proveedor:", error);
         if (isAxiosErrorWithData(error)) {
@@ -334,48 +352,41 @@ const ProvidersPage: React.FC = () => {
         </Table>
       </div>
 
-      {totalPages > 1 && (
-        <Pagination className="mt-8">
-          {" "}
-          {/* O "mt-4" para que coincida si quieres */}
-          <PaginationContent>
-            <PaginationItem>
-              <PaginationPrevious
-                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                // Opcional: Añade la clase para deshabilitar visualmente
-                className={
-                  currentPage === 1
-                    ? "pointer-events-none opacity-50"
-                    : undefined
-                }
-              />
+      {/* La paginación ahora se muestra siempre */}
+      <Pagination className="mt-8">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+              className={
+                currentPage === 1 ? "pointer-events-none opacity-50" : undefined
+              }
+            />
+          </PaginationItem>
+          {Array.from({ length: totalPages }, (_, i) => (
+            <PaginationItem key={i}>
+              <PaginationLink
+                isActive={i + 1 === currentPage}
+                onClick={() => handlePageChange(i + 1)}
+              >
+                {i + 1}
+              </PaginationLink>
             </PaginationItem>
-            {Array.from({ length: totalPages }, (_, i) => (
-              <PaginationItem key={i}>
-                <PaginationLink
-                  isActive={i + 1 === currentPage}
-                  onClick={() => handlePageChange(i + 1)}
-                >
-                  {i + 1}
-                </PaginationLink>
-              </PaginationItem>
-            ))}
-            <PaginationItem>
-              <PaginationNext
-                onClick={() =>
-                  handlePageChange(Math.min(totalPages, currentPage + 1))
-                }
-                // Opcional: Añade la clase para deshabilitar visualmente
-                className={
-                  currentPage === totalPages
-                    ? "pointer-events-none opacity-50"
-                    : undefined
-                }
-              />
-            </PaginationItem>
-          </PaginationContent>
-        </Pagination>
-      )}
+          ))}
+          <PaginationItem>
+            <PaginationNext
+              onClick={() =>
+                handlePageChange(Math.min(totalPages, currentPage + 1))
+              }
+              className={
+                currentPage === totalPages
+                  ? "pointer-events-none opacity-50"
+                  : undefined
+              }
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
 
       {/* Modal de Creación/Edición */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
