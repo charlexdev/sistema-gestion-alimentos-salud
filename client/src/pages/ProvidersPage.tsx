@@ -395,8 +395,8 @@ const ProvidersPage: React.FC = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Nombre</TableHead>
-              <TableHead>Correo Electrónico</TableHead> {/* Nuevo encabezado */}
-              <TableHead>Teléfono Fijo</TableHead> {/* Nuevo encabezado */}
+              <TableHead>Correo Electrónico</TableHead>
+              <TableHead>Teléfono Fijo</TableHead>
               <TableHead>Dirección</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -406,10 +406,12 @@ const ProvidersPage: React.FC = () => {
               providers.map((provider) => (
                 <TableRow key={provider._id}>
                   <TableCell className="font-medium">{provider.name}</TableCell>
-                  <TableCell>{provider.email}</TableCell> {/* Mostrar correo */}
-                  <TableCell>{provider.phoneNumber}</TableCell>{" "}
-                  {/* Mostrar teléfono */}
-                  <TableCell>{provider.address}</TableCell>
+                  <TableCell>{provider.email || "N/A"}</TableCell>{" "}
+                  {/* CAMBIO: Mostrar "N/A" si no hay email */}
+                  <TableCell>{provider.phoneNumber || "N/A"}</TableCell>{" "}
+                  {/* CAMBIO: Mostrar "N/A" si no hay teléfono */}
+                  <TableCell>{provider.address || "N/A"}</TableCell>{" "}
+                  {/* CAMBIO: Mostrar "N/A" si no hay dirección */}
                   <TableCell className="text-right">
                     <Button
                       variant="outline"
@@ -432,8 +434,6 @@ const ProvidersPage: React.FC = () => {
             ) : (
               <TableRow>
                 <TableCell colSpan={5} className="text-center">
-                  {" "}
-                  {/* Aumentar colSpan a 5 */}
                   No hay proveedores.
                 </TableCell>
               </TableRow>
@@ -481,8 +481,6 @@ const ProvidersPage: React.FC = () => {
       {/* Modal de Creación/Edición */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-[480px]">
-          {" "}
-          {/* Ancho ajustado aquí */}
           <DialogHeader>
             <DialogTitle>
               {currentProvider ? "Editar Proveedor" : "Agregar Nuevo Proveedor"}
@@ -547,8 +545,6 @@ const ProvidersPage: React.FC = () => {
             />
 
             <DialogFooter className="col-span-2">
-              {" "}
-              {/* Footer también abarca ambas columnas */}
               <Button type="submit">Guardar cambios</Button>
             </DialogFooter>
           </form>
