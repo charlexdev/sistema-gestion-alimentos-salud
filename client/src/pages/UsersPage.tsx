@@ -407,8 +407,8 @@ const UsersPage: React.FC = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Username</TableHead>
-              <TableHead>Email</TableHead>
+              <TableHead>Nombre de Usuario</TableHead>
+              <TableHead>Correo</TableHead>
               <TableHead>Rol</TableHead>
               {userRole === "admin" && (
                 <TableHead className="text-right">Acciones</TableHead>
