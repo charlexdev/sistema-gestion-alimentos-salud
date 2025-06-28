@@ -149,6 +149,16 @@ const UsersPage: React.FC = () => {
       setUsers(response.users || []);
       setTotalItems(response.totalItems);
       setTotalPages(response.totalPages);
+
+      // Logic to redirect to previous page if current page becomes empty after a deletion
+      if (
+        response.users &&
+        response.users.length === 0 &&
+        currentPage > 1 &&
+        response.totalPages < currentPage
+      ) {
+        setCurrentPage((prevPage) => prevPage - 1);
+      }
     } catch (error) {
       handleAxiosError(error, "usuarios");
       setUsers([]);
@@ -280,7 +290,7 @@ const UsersPage: React.FC = () => {
       toast.success("Usuario eliminado exitosamente.");
       setIsConfirmDeleteOpen(false);
       setCurrentUser(null);
-      fetchUsers();
+      fetchUsers(); // Re-fetch users after deletion
     } catch (error) {
       handleAxiosError(error, "usuario");
     } finally {
@@ -374,6 +384,7 @@ const UsersPage: React.FC = () => {
           onChange={handleSearchChange}
           className="max-w-sm"
         />
+        {/* Updated Select element for Role Filter with dark mode styles */}
         <select
           id="roleFilter"
           value={roleFilter}
@@ -473,44 +484,49 @@ const UsersPage: React.FC = () => {
         </Table>
       </div>
 
-      <Pagination className="mt-4">
-        <PaginationContent>
-          <PaginationItem>
-            <PaginationPrevious
-              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-              aria-disabled={currentPage === 1}
-              tabIndex={currentPage === 1 ? -1 : undefined}
-              className={
-                currentPage === 1 ? "pointer-events-none opacity-50" : undefined
-              }
-            />
-          </PaginationItem>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-            <PaginationItem key={page}>
-              <PaginationLink
-                onClick={() => handlePageChange(page)}
-                isActive={page === currentPage}
-              >
-                {page}
-              </PaginationLink>
+      {/* === MODIFIED: Pagination now displays if totalItems > 0 === */}
+      {totalItems > 0 && (
+        <Pagination className="mt-4">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+                aria-disabled={currentPage === 1}
+                tabIndex={currentPage === 1 ? -1 : undefined}
+                className={
+                  currentPage === 1
+                    ? "pointer-events-none opacity-50"
+                    : undefined
+                }
+              />
             </PaginationItem>
-          ))}
-          <PaginationItem>
-            <PaginationNext
-              onClick={() =>
-                handlePageChange(Math.min(totalPages, currentPage + 1))
-              }
-              aria-disabled={currentPage === totalPages}
-              tabIndex={currentPage === totalPages ? -1 : undefined}
-              className={
-                currentPage === totalPages
-                  ? "pointer-events-none opacity-50"
-                  : undefined
-              }
-            />
-          </PaginationItem>
-        </PaginationContent>
-      </Pagination>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <PaginationItem key={page}>
+                <PaginationLink
+                  onClick={() => handlePageChange(page)}
+                  isActive={page === currentPage}
+                >
+                  {page}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+            <PaginationItem>
+              <PaginationNext
+                onClick={() =>
+                  handlePageChange(Math.min(totalPages, currentPage + 1))
+                }
+                aria-disabled={currentPage === totalPages}
+                tabIndex={currentPage === totalPages ? -1 : undefined}
+                className={
+                  currentPage === totalPages
+                    ? "pointer-events-none opacity-50"
+                    : undefined
+                }
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
+      )}
 
       {/* Modal de Creación/Edición */}
       <Dialog open={isFormModalOpen} onOpenChange={setIsFormModalOpen}>
@@ -573,7 +589,6 @@ const UsersPage: React.FC = () => {
                   id="role"
                   value={formValues.role}
                   onChange={handleFormChange}
-                  // UPDATED: Added classes for consistency with Input and dark mode
                   className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   required
                   disabled={
