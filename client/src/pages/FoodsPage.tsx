@@ -95,7 +95,7 @@ const FoodsPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
-  const [totalItems, setTotalItems] = useState(0); // Aquí está la declaración
+  const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
 
   // Modales
@@ -110,16 +110,12 @@ const FoodsPage: React.FC = () => {
     description: "",
   });
 
+  // Puedes inicializar este valor desde un contexto de autenticación o una API
+  // Cambia 'admin' por 'user' (o el rol que necesites para probar)
   const [userRole] = useState<"admin" | "user">("admin");
 
-  // === NUEVO: Envuelve handleAxiosError en useCallback ===
   const handleAxiosError = useCallback(
     (error: unknown, entityName: string) => {
-      // Asegúrate de que `isAxiosErrorWithData` esté definida o importada correctamente.
-      // Si `isAxiosErrorWithData` es una función auxiliar que no cambia, no necesita estar en las dependencias.
-      // `toast.error` generalmente es estable (de la librería `sonner`).
-      // `setError` es una función setter de useState, React garantiza su estabilidad.
-      // Por lo tanto, las dependencias suelen ser mínimas o incluso vacías si no hay dependencias externas que puedan cambiar.
       if (isAxiosErrorWithData(error)) {
         toast.error(
           error.response.data?.message ||
@@ -137,8 +133,7 @@ const FoodsPage: React.FC = () => {
       setError(`Error al ${entityName}.`);
     },
     [setError]
-  ); // `setError` es una dependencia para que ESLint esté contento, aunque es estable.
-  // Si `isAxiosErrorWithData` fuera definida dentro del componente y cambiara, también debería ir aquí.
+  );
 
   const fetchFoods = useCallback(async () => {
     setIsLoading(true);
@@ -160,8 +155,7 @@ const FoodsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, itemsPerPage, searchTerm, handleAxiosError, setError]); // Asegúrate de que handleAxiosError y setError estén aquí.
-  // Es importante listar `handleAxiosError` como dependencia de `fetchFoods` ahora que `handleAxiosError` es una dependencia estable.
+  }, [currentPage, itemsPerPage, searchTerm, handleAxiosError, setError]);
 
   const fetchUnitsOfMeasurement = useCallback(async () => {
     try {
@@ -170,7 +164,7 @@ const FoodsPage: React.FC = () => {
     } catch (error) {
       handleAxiosError(error, "unidades de medida");
     }
-  }, [handleAxiosError]); // Agrega handleAxiosError como dependencia
+  }, [handleAxiosError]);
 
   useEffect(() => {
     fetchFoods();
@@ -244,7 +238,24 @@ const FoodsPage: React.FC = () => {
       toast.success("Alimento eliminado exitosamente.");
       setIsConfirmDeleteOpen(false);
       setCurrentFood(null);
-      fetchFoods();
+
+      const newTotalItems = totalItems - 1;
+      const newTotalPages = Math.max(
+        1,
+        Math.ceil(newTotalItems / itemsPerPage)
+      );
+
+      if (
+        foods.length === 1 &&
+        currentPage > 1 &&
+        currentPage > newTotalPages
+      ) {
+        setCurrentPage((prev) => prev - 1);
+      } else if (currentPage > newTotalPages) {
+        setCurrentPage(newTotalPages);
+      } else {
+        fetchFoods();
+      }
     } catch (error) {
       handleAxiosError(error, "alimento");
     } finally {
@@ -281,7 +292,7 @@ const FoodsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, handleAxiosError]); // <-- ¡Añade handleAxiosError aquí!
+  }, [searchTerm, handleAxiosError]);
 
   const handleExportToWord = useCallback(async () => {
     setIsLoading(true);
@@ -303,7 +314,7 @@ const FoodsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, handleAxiosError]); // <-- ¡Añade handleAxiosError aquí!
+  }, [searchTerm, handleAxiosError]);
 
   if (isLoading && foods.length === 0) {
     return <div className="text-center py-4">Cargando alimentos...</div>;
@@ -348,8 +359,6 @@ const FoodsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Aquí es donde mostraremos el totalItems */}
-      {/* Puedes colocarlo en el lugar que consideres más adecuado en tu UI */}
       <div className="mb-2 text-sm text-gray-600">
         Total de alimentos: {totalItems}
       </div>
@@ -380,19 +389,19 @@ const FoodsPage: React.FC = () => {
                   {userRole === "admin" && (
                     <TableCell className="text-right flex justify-end">
                       <Button
-                        variant="outline" // <-- Cambiado
-                        size="sm" // <-- Cambiado
+                        variant="outline"
+                        size="sm"
                         onClick={() => handleEditClick(food)}
-                        className="mr-2" // <-- Añadido
+                        className="mr-2"
                       >
-                        Editar {/* <-- Cambiado de ícono a texto */}
+                        Editar
                       </Button>
                       <Button
-                        variant="destructive" // <-- Cambiado
-                        size="sm" // <-- Cambiado
+                        variant="destructive"
+                        size="sm"
                         onClick={() => handleDeleteClick(food)}
                       >
-                        Eliminar {/* <-- Cambiado de ícono a texto */}
+                        Eliminar
                       </Button>
                     </TableCell>
                   )}
@@ -412,7 +421,6 @@ const FoodsPage: React.FC = () => {
         </Table>
       </div>
 
-      {/* Paginación */}
       <Pagination className="mt-4">
         <PaginationContent>
           <PaginationItem>
@@ -452,7 +460,6 @@ const FoodsPage: React.FC = () => {
         </PaginationContent>
       </Pagination>
 
-      {/* Modal de Creación/Edición */}
       <Dialog open={isFormModalOpen} onOpenChange={setIsFormModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -519,7 +526,6 @@ const FoodsPage: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Confirmación de Eliminación */}
       <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
         <DialogContent>
           <DialogHeader>
