@@ -42,7 +42,7 @@ import { DownloadIcon, FileTextIcon } from "lucide-react";
 
 // === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
 interface ApiError {
-  message: string;
+  message?: string; // message can be optional
 }
 
 interface AxiosErrorWithResponse<T = ApiError> extends Error {
@@ -81,7 +81,7 @@ function isAxiosErrorWithData<T = ApiError>(
     potentialAxiosError.response.data === undefined ||
     typeof potentialAxiosError.response.data !== "object" ||
     potentialAxiosError.response.data === null ||
-    !("message" in potentialAxiosError.response.data)
+    !("message" in potentialAxiosError.response.data) // Check for message property within data
   ) {
     return false;
   }
@@ -141,12 +141,37 @@ const UnitsOfMeasurementPage: React.FC = () => {
       };
       const response: UnitOfMeasurementListResponse =
         await unitOfMeasurementService.getUnitsOfMeasurement(params);
-      setUnits(response.unitOfMeasurements);
+
+      // --- NEW: Client-side sorting by creation time (oldest first, newest last) ---
+      // Creates a shallow copy to avoid mutating the original array received from the API
+      const sortedUnits = [...response.unitOfMeasurements].sort((a, b) => {
+        // Attempt to get timestamps from 'createdAt' field. Handle potential missing/invalid dates.
+        const dateA = a.createdAt
+          ? new Date(a.createdAt as string | Date).getTime()
+          : NaN;
+        const dateB = b.createdAt
+          ? new Date(b.createdAt as string | Date).getTime()
+          : NaN;
+
+        // If both dates are invalid, maintain their relative order
+        if (isNaN(dateA) && isNaN(dateB)) return 0;
+        // If only dateA is invalid, 'a' comes after 'b' (invalid dates go to the end)
+        if (isNaN(dateA)) return 1;
+        // If only dateB is invalid, 'b' comes after 'a' (invalid dates go to the end)
+        if (isNaN(dateB)) return -1;
+
+        // Sort by date ascending (oldest first, newest last)
+        return dateA - dateB;
+      });
+
+      setUnits(sortedUnits);
       setTotalPages(response.totalPages);
       setTotalCount(response.totalCount);
     } catch (err: unknown) {
       handleAxiosError(err, "unidades de medida");
       setUnits([]);
+      setTotalPages(1); // Reset total pages on error
+      setTotalCount(0); // Reset total count on error
     } finally {
       setIsLoading(false);
     }
@@ -208,6 +233,8 @@ const UnitsOfMeasurementPage: React.FC = () => {
         toast.success("Unidad de medida creada exitosamente.");
       }
       handleModalClose();
+      // Siempre vuelve a cargar los datos para asegurar la consistencia y el orden correcto
+      // ya que la lógica de ordenamiento está en fetchUnits.
       fetchUnits();
     } catch (err: unknown) {
       handleAxiosError(err, "unidad de medida");
@@ -249,7 +276,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
       } else if (currentPage > newTotalPages) {
         setCurrentPage(newTotalPages);
       } else {
-        fetchUnits();
+        fetchUnits(); // Re-fetch para actualizar la lista y su orden
       }
     } catch (err: unknown) {
       handleAxiosError(err, "unidad de medida");
@@ -313,57 +340,47 @@ const UnitsOfMeasurementPage: React.FC = () => {
 
   return (
     <div className="container mx-auto p-4">
-      {" "}
-      {/* Cambiado de py-8 a p-4 */}
-      <h1 className="text-2xl font-bold mb-4">
-        Gestión de Unidades de Medida
-      </h1>{" "}
-      {/* Cambiado de text-3xl a text-2xl y mb-6 a mb-4 */}
-      {error && <div className="text-red-500 mb-4">{error}</div>}{" "}
-      {/* Mostrar errores */}
+      <h1 className="text-2xl font-bold mb-4">Gestión de Unidades de Medida</h1>
+
+      {error && <div className="text-red-500 mb-4">{error}</div>}
+
       <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
-        {" "}
-        {/* Estructura de FoodsPage */}
         <Input
           type="text"
           placeholder="Buscar por nombre o símbolo"
           value={searchQuery}
           onChange={handleSearchChange}
-          className="max-w-sm" // Ancho limitado similar
+          className="max-w-sm"
         />
+
         <div className="flex w-full md:w-auto gap-2">
-          {" "}
-          {/* Agrupación de botones similar */}
           <Button onClick={handleCreateClick} className="w-full md:w-auto">
-            {" "}
-            {/* Ancho completo en móvil */}
             Crear Unidad de Medida
           </Button>
           <Button
             onClick={handleExportToExcel}
-            className="w-full md:w-auto" // Ancho completo en móvil
+            className="w-full md:w-auto"
             variant="outline"
             disabled={isLoading}
           >
-            <DownloadIcon className="mr-2 h-4 w-4" /> Excel{" "}
-            {/* Icono y texto */}
+            <DownloadIcon className="mr-2 h-4 w-4" /> Excel
           </Button>
           <Button
             onClick={handleExportToWord}
-            className="w-full md:w-auto" // Ancho completo en móvil
+            className="w-full md:w-auto"
             variant="outline"
             disabled={isLoading}
           >
-            <FileTextIcon className="mr-2 h-4 w-4" /> Word {/* Icono y texto */}
+            <FileTextIcon className="mr-2 h-4 w-4" /> Word
           </Button>
         </div>
       </div>
+
       <div className="mb-2 text-sm text-gray-600">
         Total de unidades de medida: {totalCount}
       </div>
+
       <div className="rounded-md border">
-        {" "}
-        {/* Contenedor de tabla con borde */}
         <Table>
           <TableHeader>
             <TableRow>
@@ -379,8 +396,6 @@ const UnitsOfMeasurementPage: React.FC = () => {
                   <TableCell className="font-medium">{unit.name}</TableCell>
                   <TableCell>{unit.symbol || "N/A"}</TableCell>
                   <TableCell className="text-right flex justify-end">
-                    {" "}
-                    {/* Flex para botones */}
                     <Button
                       variant="outline"
                       size="sm"
@@ -409,6 +424,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
           </TableBody>
         </Table>
       </div>
+
       <Pagination className="mt-4">
         <PaginationContent>
           <PaginationItem>
@@ -447,6 +463,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
           </PaginationItem>
         </PaginationContent>
       </Pagination>
+
       {/* Modal de Creación/Edición */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -463,8 +480,6 @@ const UnitsOfMeasurementPage: React.FC = () => {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
-            {" "}
-            {/* Eliminar className="grid gap-4 py-4" del form y añadirlo al div */}
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="name" className="text-right">
@@ -492,14 +507,13 @@ const UnitsOfMeasurementPage: React.FC = () => {
             </div>
             <DialogFooter>
               <Button type="submit" disabled={isLoading}>
-                {" "}
-                {/* Deshabilitar si está cargando */}
                 {isLoading ? "Guardando..." : "Guardar cambios"}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
       {/* Modal de Confirmación de Eliminación */}
       <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
         <DialogContent>
