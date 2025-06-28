@@ -4,12 +4,11 @@ import type {
   IUnitOfMeasurement,
   UnitOfMeasurementFormValues,
   UnitOfMeasurementQueryParams,
-  UnitOfMeasurementListResponse, // <- Este es el tipo que estamos usando
+  UnitOfMeasurementListResponse,
 } from "../types/unitOfMeasurement";
 import unitOfMeasurementService from "../api/services/unit-measurement";
 import type { AxiosRequestConfig } from "axios";
 import { toast } from "sonner";
-// Importaciones de componentes Shadcn UI
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -37,12 +36,11 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-// Importa íconos de lucide-react para exportar
 import { DownloadIcon, FileTextIcon } from "lucide-react";
 
 // === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
 interface ApiError {
-  message?: string; // message can be optional
+  message?: string;
 }
 
 interface AxiosErrorWithResponse<T = ApiError> extends Error {
@@ -81,7 +79,7 @@ function isAxiosErrorWithData<T = ApiError>(
     potentialAxiosError.response.data === undefined ||
     typeof potentialAxiosError.response.data !== "object" ||
     potentialAxiosError.response.data === null ||
-    !("message" in potentialAxiosError.response.data) // Check for message property within data
+    !("message" in potentialAxiosError.response.data)
   ) {
     return false;
   }
@@ -91,11 +89,11 @@ function isAxiosErrorWithData<T = ApiError>(
 
 const UnitsOfMeasurementPage: React.FC = () => {
   const [units, setUnits] = useState<IUnitOfMeasurement[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true); // Cambiado de 'loading' a 'isLoading'
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
-  const [totalCount, setTotalCount] = useState<number>(0); // Cambiado de 'totalItems' a 'totalCount'
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState<string>("");
 
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -142,10 +140,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
       const response: UnitOfMeasurementListResponse =
         await unitOfMeasurementService.getUnitsOfMeasurement(params);
 
-      // --- NEW: Client-side sorting by creation time (oldest first, newest last) ---
-      // Creates a shallow copy to avoid mutating the original array received from the API
       const sortedUnits = [...response.unitOfMeasurements].sort((a, b) => {
-        // Attempt to get timestamps from 'createdAt' field. Handle potential missing/invalid dates.
         const dateA = a.createdAt
           ? new Date(a.createdAt as string | Date).getTime()
           : NaN;
@@ -153,14 +148,10 @@ const UnitsOfMeasurementPage: React.FC = () => {
           ? new Date(b.createdAt as string | Date).getTime()
           : NaN;
 
-        // If both dates are invalid, maintain their relative order
         if (isNaN(dateA) && isNaN(dateB)) return 0;
-        // If only dateA is invalid, 'a' comes after 'b' (invalid dates go to the end)
         if (isNaN(dateA)) return 1;
-        // If only dateB is invalid, 'b' comes after 'a' (invalid dates go to the end)
         if (isNaN(dateB)) return -1;
 
-        // Sort by date ascending (oldest first, newest last)
         return dateA - dateB;
       });
 
@@ -170,8 +161,8 @@ const UnitsOfMeasurementPage: React.FC = () => {
     } catch (err: unknown) {
       handleAxiosError(err, "unidades de medida");
       setUnits([]);
-      setTotalPages(1); // Reset total pages on error
-      setTotalCount(0); // Reset total count on error
+      setTotalPages(1);
+      setTotalCount(0);
     } finally {
       setIsLoading(false);
     }
@@ -181,7 +172,6 @@ const UnitsOfMeasurementPage: React.FC = () => {
     fetchUnits();
   }, [fetchUnits]);
 
-  // Manejadores de cambios en filtros y paginación
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(e.target.value);
     setCurrentPage(1);
@@ -191,7 +181,6 @@ const UnitsOfMeasurementPage: React.FC = () => {
     setCurrentPage(page);
   };
 
-  // Manejadores del modal de creación/edición
   const handleCreateClick = () => {
     setCurrentUnit(null);
     setFormValues({ name: "", symbol: "" });
@@ -217,55 +206,55 @@ const UnitsOfMeasurementPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true); // Se agrega para el estado de carga del formulario
+    setIsLoading(true);
     setError(null);
+
+    // --- Símbolo validation (max 5 characters) ---
+    // Using non-null assertion operator (!) as formValues.symbol is always a string.
+    if (formValues.symbol!.length > 5) {
+      toast.error("El símbolo no puede tener más de 5 caracteres.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
       if (currentUnit) {
-        // Editar unidad
         await unitOfMeasurementService.updateUnitOfMeasurement(
           currentUnit._id,
           formValues
         );
         toast.success("Unidad de medida actualizada exitosamente.");
       } else {
-        // Crear unidad
         await unitOfMeasurementService.createUnitOfMeasurement(formValues);
         toast.success("Unidad de medida creada exitosamente.");
       }
       handleModalClose();
-      // Siempre vuelve a cargar los datos para asegurar la consistencia y el orden correcto
-      // ya que la lógica de ordenamiento está en fetchUnits.
       fetchUnits();
     } catch (err: unknown) {
       handleAxiosError(err, "unidad de medida");
     } finally {
-      setIsLoading(false); // Se agrega para finalizar el estado de carga
+      setIsLoading(false);
     }
   };
 
-  // Manejadores de eliminación
   const handleDeleteClick = (unit: IUnitOfMeasurement) => {
     setCurrentUnit(unit);
     setIsConfirmDeleteOpen(true);
   };
 
   const handleConfirmDelete = async () => {
-    if (!currentUnit) return; // Se añade una guarda
+    if (!currentUnit) return;
 
-    setIsLoading(true); // Se agrega para el estado de carga de la eliminación
+    setIsLoading(true);
     setError(null);
     try {
       await unitOfMeasurementService.deleteUnitOfMeasurement(currentUnit._id);
       toast.success("Unidad de medida eliminada exitosamente.");
       setIsConfirmDeleteOpen(false);
-      setCurrentUnit(null); // Limpiar currentUnit después de eliminar
+      setCurrentUnit(null);
 
-      // Lógica de paginación similar a FoodsPage
       const newTotalCount = totalCount - 1;
-      const newTotalPages = Math.max(
-        1,
-        Math.ceil(newTotalCount / 10) // 10 es itemsPerPage fijo
-      );
+      const newTotalPages = Math.max(1, Math.ceil(newTotalCount / 10));
 
       if (
         units.length === 1 &&
@@ -276,16 +265,15 @@ const UnitsOfMeasurementPage: React.FC = () => {
       } else if (currentPage > newTotalPages) {
         setCurrentPage(newTotalPages);
       } else {
-        fetchUnits(); // Re-fetch para actualizar la lista y su orden
+        fetchUnits();
       }
     } catch (err: unknown) {
       handleAxiosError(err, "unidad de medida");
     } finally {
-      setIsLoading(false); // Se agrega para finalizar el estado de carga
+      setIsLoading(false);
     }
   };
 
-  // --- Manejadores de Eventos de Exportación ---
   const handleExportToExcel = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -296,7 +284,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `UnidadesDeMedida_${Date.now()}.xlsx`; // Formato de nombre de archivo similar
+      a.download = `UnidadesDeMedida_${Date.now()}.xlsx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -319,7 +307,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `UnidadesDeMedida_${Date.now()}.docx`; // Formato de nombre de archivo similar
+      a.download = `UnidadesDeMedida_${Date.now()}.docx`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -502,6 +490,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
                   value={formValues.symbol}
                   onChange={handleFormChange}
                   className="col-span-3"
+                  maxLength={5}
                 />
               </div>
             </div>
