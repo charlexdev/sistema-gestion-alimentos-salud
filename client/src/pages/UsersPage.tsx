@@ -108,6 +108,9 @@ const UsersPage: React.FC = () => {
   });
   const [isEditMode, setIsEditMode] = useState(false);
 
+  // CORRECTED: Type for roleFilter
+  const [roleFilter, setRoleFilter] = useState<"admin" | "user" | "">("");
+
   const authenticatedUser = useUser(); // Usuario logueado
   const userRole = authenticatedUser?.role;
 
@@ -140,6 +143,7 @@ const UsersPage: React.FC = () => {
         page: currentPage,
         limit: itemsPerPage,
         search: searchTerm,
+        ...(roleFilter && { role: roleFilter as "admin" | "user" }),
       };
       const response = await userService.getUsers(params);
 
@@ -152,7 +156,7 @@ const UsersPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, itemsPerPage, searchTerm, handleAxiosError]);
+  }, [currentPage, itemsPerPage, searchTerm, roleFilter, handleAxiosError]);
 
   useEffect(() => {
     fetchUsers();
@@ -190,8 +194,6 @@ const UsersPage: React.FC = () => {
         }
 
         const userIdToUpdate = currentUser.id || currentUser._id;
-        // console.log("FRONTEND LOG (3): handleSubmit - Modo edición. ID a enviar:", userIdToUpdate); // Mantener para depuración si es necesario
-        // console.log("FRONTEND LOG (4): handleSubmit - Datos a enviar para actualización:", dataToUpdate); // Mantener para depuración si es necesario
 
         if (!userIdToUpdate) {
           console.error(
@@ -235,10 +237,6 @@ const UsersPage: React.FC = () => {
   };
 
   const handleEditClick = (user: User & { _id?: string }) => {
-    // console.log("FRONTEND LOG (1): handleEditClick - Usuario recibido:", user); // Mantener para depuración si es necesario
-    // console.log("FRONTEND LOG (2): handleEditClick - ID del usuario (user.id):", user.id); // Mantener para depuración si es necesario
-    // console.log("FRONTEND LOG (2a): handleEditClick - ID del usuario (user._id):", user._id); // Mantener para depuración si es necesario
-
     setCurrentUser(user);
     setFormValues({
       username: user.username,
@@ -258,19 +256,15 @@ const UsersPage: React.FC = () => {
   const handleConfirmDelete = async () => {
     if (!currentUser) return;
 
-    // Obtiene el ID del usuario que se intenta eliminar, priorizando 'id'
     const userIdToDelete = currentUser.id || currentUser._id;
-    // Obtiene el ID del usuario logueado
-    const loggedInUserId = authenticatedUser?.id || authenticatedUser?._id; // Usa id o _id para el usuario autenticado también
+    const loggedInUserId = authenticatedUser?.id || authenticatedUser?._id;
 
-    // === INICIO CAMBIO PARA IMPEDIR AUTO-ELIMINACIÓN ===
     if (userIdToDelete === loggedInUserId) {
       toast.error("No puedes eliminar tu propio usuario.");
       setIsConfirmDeleteOpen(false);
-      setIsLoading(false); // Asegúrate de que el loading se resetee si estaba activo
+      setIsLoading(false);
       return;
     }
-    // === FIN CAMBIO ===
 
     setIsLoading(true);
     setError(null);
@@ -304,11 +298,17 @@ const UsersPage: React.FC = () => {
     setCurrentPage(1);
   };
 
+  const handleRoleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setRoleFilter(e.target.value as "admin" | "user" | "");
+    setCurrentPage(1);
+  };
+
   const handleExportToExcel = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: UserQueryParams = {
         search: searchTerm,
+        ...(roleFilter && { role: roleFilter as "admin" | "user" }),
       };
       const blob = await userService.exportUsersToExcel(params);
       const url = window.URL.createObjectURL(new Blob([blob]));
@@ -324,13 +324,14 @@ const UsersPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, handleAxiosError]);
+  }, [searchTerm, roleFilter, handleAxiosError]);
 
   const handleExportToWord = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: UserQueryParams = {
         search: searchTerm,
+        ...(roleFilter && { role: roleFilter as "admin" | "user" }),
       };
       const blob = await userService.exportUsersToWord(params);
       const url = window.URL.createObjectURL(new Blob([blob]));
@@ -346,7 +347,7 @@ const UsersPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, handleAxiosError]);
+  }, [searchTerm, roleFilter, handleAxiosError]);
 
   if (isLoading && users.length === 0) {
     return <div className="text-center py-4">Cargando usuarios...</div>;
@@ -374,6 +375,19 @@ const UsersPage: React.FC = () => {
           onChange={handleSearchChange}
           className="max-w-sm"
         />
+        {/* Updated Select element for Role Filter with dark mode styles */}
+        <select
+          id="roleFilter"
+          value={roleFilter}
+          onChange={handleRoleFilterChange}
+          // Added/modified classes for dark mode compatibility and outline style
+          className="max-w-sm border border-input bg-background text-foreground rounded-md p-2 h-10 ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
+        >
+          <option value="">Todos los Roles</option>
+          <option value="user">Usuario</option>
+          <option value="admin">Administrador</option>
+        </select>
+
         <div className="flex w-full md:w-auto gap-2">
           {userRole === "admin" && (
             <Button onClick={handleCreateClick} className="w-full md:w-auto">
@@ -436,7 +450,6 @@ const UsersPage: React.FC = () => {
                         variant="destructive"
                         size="sm"
                         onClick={() => handleDeleteClick(user)}
-                        // === Modificado: Deshabilitar si es el usuario logueado ===
                         disabled={
                           isLoading ||
                           (user.id || user._id) ===
@@ -565,7 +578,6 @@ const UsersPage: React.FC = () => {
                   onChange={handleFormChange}
                   className="col-span-3 border rounded-md p-2"
                   required
-                  // === Modificado: Deshabilitar el cambio de rol si es el usuario logueado ===
                   disabled={
                     isEditMode &&
                     (currentUser?.id || currentUser?._id) ===
@@ -609,7 +621,6 @@ const UsersPage: React.FC = () => {
               onClick={handleConfirmDelete}
               disabled={
                 isLoading ||
-                // === Modificado: Deshabilitar si es el usuario logueado ===
                 (currentUser?.id || currentUser?._id) ===
                   (authenticatedUser?.id || authenticatedUser?._id)
               }
