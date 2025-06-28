@@ -108,6 +108,8 @@ const UsersPage: React.FC = () => {
   });
   const [isEditMode, setIsEditMode] = useState(false);
 
+  const [emailError, setEmailError] = useState<string | null>(null);
+
   const [roleFilter, setRoleFilter] = useState<"admin" | "user" | "">("");
 
   const authenticatedUser = useUser();
@@ -178,12 +180,36 @@ const UsersPage: React.FC = () => {
   ) => {
     const { id, value } = e.target;
     setFormValues((prev) => ({ ...prev, [id]: value }));
+
+    // Email validation on change
+    if (id === "email") {
+      if (value.length > 50) {
+        setEmailError("El correo no puede exceder los 50 caracteres.");
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) && value !== "") {
+        // Only show format error if not empty
+        setEmailError("El correo electrónico no tiene un formato válido.");
+      } else {
+        setEmailError(null);
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
+
+    // Final email validation before submission
+    if (formValues.email.length > 50) {
+      toast.error("El correo no puede exceder los 50 caracteres.");
+      setIsLoading(false);
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formValues.email)) {
+      toast.error("El correo electrónico no tiene un formato válido.");
+      setIsLoading(false);
+      return;
+    }
 
     try {
       if (isEditMode && currentUser) {
@@ -230,6 +256,7 @@ const UsersPage: React.FC = () => {
       setFormValues({ username: "", email: "", password: "", role: "user" });
       setCurrentUser(null);
       setIsEditMode(false);
+      setEmailError(null); // Clear error on successful submission
       fetchUsers();
     } catch (error) {
       handleAxiosError(error, "usuario");
@@ -243,6 +270,7 @@ const UsersPage: React.FC = () => {
     setCurrentUser(null);
     setIsEditMode(false);
     setIsFormModalOpen(true);
+    setEmailError(null); // Clear error when opening for creation
   };
 
   const handleEditClick = (user: User & { _id?: string }) => {
@@ -255,6 +283,7 @@ const UsersPage: React.FC = () => {
     });
     setIsEditMode(true);
     setIsFormModalOpen(true);
+    setEmailError(null); // Clear error when opening for editing
   };
 
   const handleDeleteClick = (user: User & { _id?: string }) => {
@@ -384,7 +413,6 @@ const UsersPage: React.FC = () => {
           onChange={handleSearchChange}
           className="max-w-sm"
         />
-        {/* Updated Select element for Role Filter with dark mode styles */}
         <select
           id="roleFilter"
           value={roleFilter}
@@ -484,7 +512,7 @@ const UsersPage: React.FC = () => {
         </Table>
       </div>
 
-      {/* === MODIFIED: Pagination now displays if totalItems > 0 === */}
+      {/* Pagination: Always show if totalItems > 0 */}
       {totalItems > 0 && (
         <Pagination className="mt-4">
           <PaginationContent>
@@ -555,18 +583,28 @@ const UsersPage: React.FC = () => {
                   required
                 />
               </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="email" className="text-right">
+              {/* MODIFIED: Email input and error message contained in a flex column */}
+              <div className="grid grid-cols-4 items-start gap-4">
+                {" "}
+                {/* Changed items-center to items-start for label alignment with multi-line content */}
+                <Label htmlFor="email" className="text-right pt-2">
+                  {" "}
+                  {/* Added pt-2 to align label with top of input */}
                   Email
                 </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formValues.email}
-                  onChange={handleFormChange}
-                  className="col-span-3"
-                  required
-                />
+                <div className="col-span-3 flex flex-col">
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formValues.email}
+                    onChange={handleFormChange}
+                    required
+                    maxLength={50} // HTML5 max length as an initial guard
+                  />
+                  {emailError && (
+                    <p className="text-red-500 text-sm mt-1">{emailError}</p>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="password" className="text-right">
@@ -603,7 +641,7 @@ const UsersPage: React.FC = () => {
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={isLoading}>
+              <Button type="submit" disabled={isLoading || !!emailError}>
                 {isLoading ? "Guardando..." : "Guardar cambios"}
               </Button>
             </DialogFooter>
