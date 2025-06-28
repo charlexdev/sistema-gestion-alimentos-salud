@@ -1,7 +1,7 @@
 // server/src/controllers/unitOfMeasurement.controller.ts
 import { Request, Response } from "express";
 import UnitOfMeasurement from "../models/unitOfMeasurement.model";
-import ExcelJS from "exceljs"; // Asegúrate de haber instalado exceljs
+import ExcelJS from "exceljs";
 import {
   Document,
   Packer,
@@ -13,7 +13,7 @@ import {
   WidthType,
   VerticalAlign,
   BorderStyle,
-} from "docx"; // Asegúrate de haber instalado docx
+} from "docx";
 
 // Función auxiliar para manejar errores de validación de Mongoose
 const handleMongooseValidationError = (res: Response, error: any): void => {
@@ -188,7 +188,16 @@ export const exportUnitsToExcel = async (
   res: Response
 ): Promise<void> => {
   try {
-    const units = await UnitOfMeasurement.find().sort({ name: 1 });
+    const query: any = {};
+    const searchQuery = req.query.search as string;
+
+    if (searchQuery) {
+      query.$or = [
+        { name: { $regex: searchQuery, $options: "i" } },
+        { symbol: { $regex: searchQuery, $options: "i" } },
+      ];
+    }
+    const units = await UnitOfMeasurement.find(query).sort({ name: 1 }); // Filtrado aplicado aquí
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Unidades de Medida");
@@ -242,7 +251,16 @@ export const exportUnitsToWord = async (
   res: Response
 ): Promise<void> => {
   try {
-    const units = await UnitOfMeasurement.find().sort({ name: 1 });
+    const query: any = {};
+    const searchQuery = req.query.search as string;
+
+    if (searchQuery) {
+      query.$or = [
+        { name: { $regex: searchQuery, $options: "i" } },
+        { symbol: { $regex: searchQuery, $options: "i" } },
+      ];
+    }
+    const units = await UnitOfMeasurement.find(query).sort({ name: 1 }); // Filtrado aplicado aquí
 
     const tableRows = [
       new TableRow({
