@@ -35,6 +35,9 @@ import {
 } from "@/components/ui/pagination";
 import { DownloadIcon, FileTextIcon } from "lucide-react";
 
+// Import useUser hook from auth store
+import { useUser } from "@/stores/auth";
+
 // === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
 interface ApiError {
   message: string;
@@ -97,6 +100,8 @@ const FoodsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedUnitOfMeasurementId, setSelectedUnitOfMeasurementId] =
+    useState<string>(""); // Nuevo estado para la unidad de medida seleccionada
 
   // Modales
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -110,9 +115,9 @@ const FoodsPage: React.FC = () => {
     description: "",
   });
 
-  // Puedes inicializar este valor desde un contexto de autenticación o una API
-  // Cambia 'admin' por 'user' (o el rol que necesites para probar)
-  const [userRole] = useState<"admin" | "user">("admin");
+  // Get the logged-in user from the Zustand store
+  const user = useUser();
+  const isAdmin = user?.role === "admin"; // Check if the user has the 'admin' role
 
   const handleAxiosError = useCallback(
     (error: unknown, entityName: string) => {
@@ -144,6 +149,12 @@ const FoodsPage: React.FC = () => {
         limit: itemsPerPage,
         search: searchTerm,
       };
+
+      // Incluir la unidad de medida seleccionada si existe
+      if (selectedUnitOfMeasurementId) {
+        params.unitOfMeasurementId = selectedUnitOfMeasurementId;
+      }
+
       const response = await foodService.getFoods(params);
 
       setFoods(response.data || []);
@@ -155,7 +166,14 @@ const FoodsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, itemsPerPage, searchTerm, handleAxiosError, setError]);
+  }, [
+    currentPage,
+    itemsPerPage,
+    searchTerm,
+    selectedUnitOfMeasurementId,
+    handleAxiosError,
+    setError,
+  ]); // Añadir selectedUnitOfMeasurementId como dependencia
 
   const fetchUnitsOfMeasurement = useCallback(async () => {
     try {
@@ -272,12 +290,24 @@ const FoodsPage: React.FC = () => {
     setCurrentPage(1);
   };
 
+  // Nuevo manejador para el cambio de unidad de medida
+  const handleUnitOfMeasurementChange = (
+    e: React.ChangeEvent<HTMLSelectElement>
+  ) => {
+    setSelectedUnitOfMeasurementId(e.target.value);
+    setCurrentPage(1); // Reiniciar a la primera página al cambiar el filtro
+  };
+
   const handleExportToExcel = useCallback(async () => {
     setIsLoading(true);
     try {
       const params: FoodQueryParams = {
         search: searchTerm,
       };
+      if (selectedUnitOfMeasurementId) {
+        // Incluir la unidad de medida en la exportación
+        params.unitOfMeasurementId = selectedUnitOfMeasurementId;
+      }
       const blob = await foodService.exportFoodsToExcel(params);
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement("a");
@@ -292,7 +322,7 @@ const FoodsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, handleAxiosError]);
+  }, [searchTerm, selectedUnitOfMeasurementId, handleAxiosError]); // Añadir selectedUnitOfMeasurementId como dependencia
 
   const handleExportToWord = useCallback(async () => {
     setIsLoading(true);
@@ -300,6 +330,10 @@ const FoodsPage: React.FC = () => {
       const params: FoodQueryParams = {
         search: searchTerm,
       };
+      if (selectedUnitOfMeasurementId) {
+        // Incluir la unidad de medida en la exportación
+        params.unitOfMeasurementId = selectedUnitOfMeasurementId;
+      }
       const blob = await foodService.exportFoodsToWord(params);
       const url = window.URL.createObjectURL(new Blob([blob]));
       const link = document.createElement("a");
@@ -314,7 +348,7 @@ const FoodsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, handleAxiosError]);
+  }, [searchTerm, selectedUnitOfMeasurementId, handleAxiosError]); // Añadir selectedUnitOfMeasurementId como dependencia
 
   if (isLoading && foods.length === 0) {
     return <div className="text-center py-4">Cargando alimentos...</div>;
@@ -329,13 +363,27 @@ const FoodsPage: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
         <Input
           type="text"
-          placeholder="Buscar alimentos..."
+          placeholder="Buscar por nombre"
           value={searchTerm}
           onChange={handleSearchChange}
           className="max-w-sm"
         />
+        {/* Nuevo select para filtrar por unidad de medida */}
+        <select
+          value={selectedUnitOfMeasurementId}
+          onChange={handleUnitOfMeasurementChange}
+          className="h-10 w-full md:max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <option value="">Todas las Unidades</option>
+          {unitsOfMeasurement.map((unit) => (
+            <option key={unit._id} value={unit._id}>
+              {unit.name} ({unit.symbol})
+            </option>
+          ))}
+        </select>
+
         <div className="flex w-full md:w-auto gap-2">
-          {userRole === "admin" && (
+          {isAdmin && (
             <Button onClick={handleCreateClick} className="w-full md:w-auto">
               Agregar Alimento
             </Button>
@@ -370,7 +418,7 @@ const FoodsPage: React.FC = () => {
               <TableHead>Nombre</TableHead>
               <TableHead>Unidad de Medida</TableHead>
               <TableHead>Descripción</TableHead>
-              {userRole === "admin" && (
+              {isAdmin && (
                 <TableHead className="text-right">Acciones</TableHead>
               )}
             </TableRow>
@@ -386,7 +434,7 @@ const FoodsPage: React.FC = () => {
                       : "Cargando..."}
                   </TableCell>
                   <TableCell>{food.description || "N/A"}</TableCell>
-                  {userRole === "admin" && (
+                  {isAdmin && (
                     <TableCell className="text-right flex justify-end">
                       <Button
                         variant="outline"
@@ -410,7 +458,7 @@ const FoodsPage: React.FC = () => {
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={userRole === "admin" ? 4 : 3}
+                  colSpan={isAdmin ? 4 : 3}
                   className="text-center py-4"
                 >
                   No se encontraron alimentos.
@@ -494,7 +542,7 @@ const FoodsPage: React.FC = () => {
                   id="unitOfMeasurementId"
                   value={formValues.unitOfMeasurementId}
                   onChange={handleFormChange}
-                  className="col-span-3 border rounded-md p-2"
+                  className="col-span-3 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   required
                 >
                   <option value="">Seleccione una unidad</option>
