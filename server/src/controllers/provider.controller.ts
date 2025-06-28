@@ -1,7 +1,7 @@
 // server/src/controllers/provider.controller.ts
 import { Request, Response } from "express";
 import Provider from "../models/provider.model";
-import ExcelJS from "exceljs"; // Importa exceljs
+import ExcelJS from "exceljs";
 import {
   Document,
   Packer,
@@ -13,7 +13,7 @@ import {
   WidthType,
   VerticalAlign,
   BorderStyle,
-} from "docx"; // Importa docx
+} from "docx";
 
 const handleMongooseValidationError = (res: Response, error: any): void => {
   if (error.name === "ValidationError") {
@@ -30,7 +30,8 @@ export const createProvider = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { name, contactInfo, address } = req.body;
+    // Desestructurar email y phoneNumber
+    const { name, email, phoneNumber, address } = req.body;
 
     if (!name) {
       res
@@ -47,7 +48,8 @@ export const createProvider = async (
       return;
     }
 
-    const newProvider = new Provider({ name, contactInfo, address });
+    // Usar email y phoneNumber
+    const newProvider = new Provider({ name, email, phoneNumber, address });
     await newProvider.save();
     res.status(201).json(newProvider);
   } catch (error: any) {
@@ -65,14 +67,16 @@ export const getAllProviders = async (
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
     const search = (req.query.search as string) || "";
-    const sort = (req.query.sort as string) || "name";
-    const order = (req.query.order as string) === "desc" ? -1 : 1;
+    // CAMBIO: Ordenar por 'createdAt' por defecto para que los nuevos aparezcan al final
+    const sort = (req.query.sort as string) || "createdAt";
+    const order = (req.query.order as string) === "desc" ? -1 : 1; // 1 para ascendente (más antiguo al principio, más nuevo al final)
 
     const query: any = {};
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
-        { contactInfo: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } }, // CAMBIO: Buscar por email
+        { phoneNumber: { $regex: search, $options: "i" } }, // CAMBIO: Buscar por phoneNumber
         { address: { $regex: search, $options: "i" } },
       ];
     }
@@ -123,11 +127,12 @@ export const updateProvider = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { name, contactInfo, address } = req.body;
+    // Desestructurar email y phoneNumber
+    const { name, email, phoneNumber, address } = req.body;
 
     const updatedProvider = await Provider.findByIdAndUpdate(
       req.params.id,
-      { name, contactInfo, address },
+      { name, email, phoneNumber, address }, // CAMBIO: Actualizar email y phoneNumber
       { new: true, runValidators: true }
     );
 
@@ -167,7 +172,7 @@ export const deleteProvider = async (
   }
 };
 
-// === NUEVAS FUNCIONES DE EXPORTACIÓN ===
+// === FUNCIONES DE EXPORTACIÓN ===
 
 // Exportar proveedores a Excel
 export const exportProvidersToExcel = async (
@@ -176,14 +181,15 @@ export const exportProvidersToExcel = async (
 ): Promise<void> => {
   try {
     const search = (req.query.search as string) || "";
-    const sort = (req.query.sort as string) || "name";
+    const sort = (req.query.sort as string) || "createdAt"; // CAMBIO: Ordenar por createdAt por defecto
     const order = (req.query.order as string) === "desc" ? -1 : 1;
 
     const query: any = {};
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
-        { contactInfo: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } }, // CAMBIO: Buscar por email
+        { phoneNumber: { $regex: search, $options: "i" } }, // CAMBIO: Buscar por phoneNumber
         { address: { $regex: search, $options: "i" } },
       ];
     }
@@ -195,7 +201,8 @@ export const exportProvidersToExcel = async (
 
     worksheet.columns = [
       { header: "Nombre", key: "name", width: 30 },
-      { header: "Información de Contacto", key: "contactInfo", width: 40 },
+      { header: "Correo Electrónico", key: "email", width: 40 }, // CAMBIO: Nuevo encabezado para email
+      { header: "Teléfono Fijo", key: "phoneNumber", width: 20 }, // CAMBIO: Nuevo encabezado para phoneNumber
       { header: "Dirección", key: "address", width: 50 },
       { header: "Fecha de Creación", key: "createdAt", width: 20 },
       { header: "Última Actualización", key: "updatedAt", width: 20 },
@@ -204,7 +211,8 @@ export const exportProvidersToExcel = async (
     providers.forEach((provider) => {
       worksheet.addRow({
         name: provider.name,
-        contactInfo: provider.contactInfo,
+        email: provider.email, // CAMBIO: Usar provider.email
+        phoneNumber: provider.phoneNumber, // CAMBIO: Usar provider.phoneNumber
         address: provider.address,
         createdAt: provider.createdAt
           ? provider.createdAt.toLocaleDateString()
@@ -241,14 +249,15 @@ export const exportProvidersToWord = async (
 ): Promise<void> => {
   try {
     const search = (req.query.search as string) || "";
-    const sort = (req.query.sort as string) || "name";
+    const sort = (req.query.sort as string) || "createdAt"; // CAMBIO: Ordenar por createdAt por defecto
     const order = (req.query.order as string) === "desc" ? -1 : 1;
 
     const query: any = {};
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
-        { contactInfo: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } }, // CAMBIO: Buscar por email
+        { phoneNumber: { $regex: search, $options: "i" } }, // CAMBIO: Buscar por phoneNumber
         { address: { $regex: search, $options: "i" } },
       ];
     }
@@ -279,7 +288,27 @@ export const exportProvidersToWord = async (
               new Paragraph({
                 children: [
                   new TextRun({
-                    text: "Información de Contacto",
+                    text: "Correo Electrónico", // CAMBIO: Encabezado para email
+                    bold: true,
+                    size: 24,
+                  }),
+                ],
+              }),
+            ],
+            verticalAlign: VerticalAlign.CENTER,
+            borders: {
+              top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+              bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+              left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+              right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+            },
+          }),
+          new TableCell({
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "Teléfono Fijo", // CAMBIO: Encabezado para phoneNumber
                     bold: true,
                     size: 24,
                   }),
@@ -369,7 +398,17 @@ export const exportProvidersToWord = async (
               },
             }),
             new TableCell({
-              children: [new Paragraph(provider.contactInfo || "N/A")],
+              children: [new Paragraph(provider.email || "N/A")], // CAMBIO: Usar provider.email
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 1, color: "000000" },
+              },
+            }),
+            new TableCell({
+              children: [new Paragraph(provider.phoneNumber || "N/A")], // CAMBIO: Usar provider.phoneNumber
               verticalAlign: VerticalAlign.CENTER,
               borders: {
                 top: { style: BorderStyle.SINGLE, size: 1, color: "000000" },

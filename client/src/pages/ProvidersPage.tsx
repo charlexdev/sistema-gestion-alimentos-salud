@@ -1,11 +1,43 @@
 // client/src/pages/ProvidersPage.tsx
 import React, { useState, useEffect, useCallback } from "react";
-import type {
-  IProvider,
-  ProviderFormValues,
-  ProviderQueryParams,
-  ProviderListResponse,
-} from "../types/provider";
+// Importamos los tipos directamente aquí para la demostración
+// Idealmente, estos tipos deberían provenir de '../types/provider'
+// Si estos tipos ya existen en tu archivo ../types/provider.ts,
+// debes actualizar ese archivo y luego eliminar estas definiciones locales.
+
+// === DEFINICIÓN LOCAL DE TIPOS ACTUALIZADOS ===
+interface IProvider {
+  _id: string;
+  name: string;
+  email?: string; // Nuevo campo para el correo
+  phoneNumber?: string; // Nuevo campo para el número de teléfono fijo
+  address?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+interface ProviderFormValues {
+  name: string;
+  email?: string; // Nuevo campo en el formulario
+  phoneNumber?: string; // Nuevo campo en el formulario
+  address: string;
+}
+
+interface ProviderQueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+interface ProviderListResponse {
+  data: IProvider[];
+  totalPages: number;
+  totalItems: number;
+  currentPage: number;
+}
+
+// Fin de la definición de tipos locales (reemplazar por importación si ya existen)
+
 import providerService from "../api/services/provider";
 import type { AxiosRequestConfig } from "axios";
 import { toast } from "sonner";
@@ -65,7 +97,7 @@ function isAxiosErrorWithData<T = { message?: string }>(
     return false;
   }
   // Se asume que `error` podría ser un AxiosError
-  const potentialAxiosError = error as Partial<AxiosErrorWithResponse<T>>; // <-- CORRECCIÓN AQUÍ
+  const potentialAxiosError = error as Partial<AxiosErrorWithResponse<T>>;
   return (
     potentialAxiosError.isAxiosError === true &&
     potentialAxiosError.response !== undefined &&
@@ -84,9 +116,11 @@ const ProvidersPage: React.FC = () => {
   const [currentProvider, setCurrentProvider] = useState<IProvider | null>(
     null
   );
+  // Estado inicial con los nuevos campos
   const [formValues, setFormValues] = useState<ProviderFormValues>({
     name: "",
-    contactInfo: "",
+    email: "",
+    phoneNumber: "",
     address: "",
   });
 
@@ -134,6 +168,7 @@ const ProvidersPage: React.FC = () => {
     setCurrentPage(1); // Resetear a la primera página en cada búsqueda
   };
 
+  // Función para manejar los cambios en los nuevos campos del formulario
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
     setFormValues((prev) => ({ ...prev, [id]: value }));
@@ -141,15 +176,18 @@ const ProvidersPage: React.FC = () => {
 
   const handleCreateClick = () => {
     setCurrentProvider(null);
-    setFormValues({ name: "", contactInfo: "", address: "" });
+    // Inicializar los nuevos campos como vacíos para un nuevo proveedor
+    setFormValues({ name: "", email: "", phoneNumber: "", address: "" });
     setIsFormOpen(true);
   };
 
   const handleEditClick = (provider: IProvider) => {
     setCurrentProvider(provider);
+    // Rellenar los campos del formulario con los datos del proveedor existente
     setFormValues({
       name: provider.name,
-      contactInfo: provider.contactInfo || "",
+      email: provider.email || "", // Usar el nuevo campo 'email'
+      phoneNumber: provider.phoneNumber || "", // Usar el nuevo campo 'phoneNumber'
       address: provider.address || "",
     });
     setIsFormOpen(true);
@@ -162,11 +200,59 @@ const ProvidersPage: React.FC = () => {
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Aseguramos que email y phoneNumber sean strings no nulos/undefined para las validaciones.
+    const email = formValues.email?.trim() || "";
+    const phoneNumber = formValues.phoneNumber?.trim() || "";
+
+    // Regex para validar email (básico, puedes ajustarlo para ser más estricto)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    // Regex para validar número de teléfono fijo de 8 dígitos
+    const phoneRegex = /^\d{8}$/;
+
+    let isValid = true; // Bandera para controlar la validez del formulario
+
+    // Validación: Al menos un método de contacto debe ser introducido
+    if (!email && !phoneNumber) {
+      toast.error("Introduzca al menos un método de contacto.");
+      isValid = false;
+    }
+
+    // Validación del Email si se proporcionó
+    if (email) {
+      if (!emailRegex.test(email)) {
+        toast.error("El formato del correo electrónico es inválido.");
+        isValid = false;
+      }
+      if (email.length > 50) {
+        toast.error("El correo electrónico no debe exceder los 50 caracteres.");
+        isValid = false;
+      }
+    }
+
+    // Validación del Número de Teléfono Fijo si se proporcionó
+    if (phoneNumber) {
+      // El regex /^\d{8}$/ ya asegura que tenga exactamente 8 dígitos.
+      if (!phoneRegex.test(phoneNumber)) {
+        toast.error(
+          "El número de teléfono fijo debe tener exactamente 8 dígitos."
+        );
+        isValid = false;
+      }
+    }
+
+    // Si alguna validación falló, detener el envío del formulario
+    if (!isValid) {
+      return;
+    }
+
     try {
       if (currentProvider) {
+        // Enviar los nuevos formValues con email y phoneNumber
         await providerService.updateProvider(currentProvider._id, formValues);
         toast.success("Proveedor actualizado exitosamente.");
       } else {
+        // Enviar los nuevos formValues con email y phoneNumber
         await providerService.createProvider(formValues);
         toast.success("Proveedor creado exitosamente.");
       }
@@ -175,7 +261,6 @@ const ProvidersPage: React.FC = () => {
     } catch (error) {
       console.error("Error al guardar proveedor:", error);
       if (isAxiosErrorWithData(error)) {
-        // Acceder a .data.message de forma segura
         toast.error(
           error.response?.data?.message || "Error al guardar el proveedor."
         );
@@ -310,7 +395,8 @@ const ProvidersPage: React.FC = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Nombre</TableHead>
-              <TableHead>Información de Contacto</TableHead>
+              <TableHead>Correo Electrónico</TableHead> {/* Nuevo encabezado */}
+              <TableHead>Teléfono Fijo</TableHead> {/* Nuevo encabezado */}
               <TableHead>Dirección</TableHead>
               <TableHead className="text-right">Acciones</TableHead>
             </TableRow>
@@ -320,7 +406,9 @@ const ProvidersPage: React.FC = () => {
               providers.map((provider) => (
                 <TableRow key={provider._id}>
                   <TableCell className="font-medium">{provider.name}</TableCell>
-                  <TableCell>{provider.contactInfo}</TableCell>
+                  <TableCell>{provider.email}</TableCell> {/* Mostrar correo */}
+                  <TableCell>{provider.phoneNumber}</TableCell>{" "}
+                  {/* Mostrar teléfono */}
                   <TableCell>{provider.address}</TableCell>
                   <TableCell className="text-right">
                     <Button
@@ -343,7 +431,9 @@ const ProvidersPage: React.FC = () => {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={4} className="text-center">
+                <TableCell colSpan={5} className="text-center">
+                  {" "}
+                  {/* Aumentar colSpan a 5 */}
                   No hay proveedores.
                 </TableCell>
               </TableRow>
@@ -390,7 +480,9 @@ const ProvidersPage: React.FC = () => {
 
       {/* Modal de Creación/Edición */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[480px]">
+          {" "}
+          {/* Ancho ajustado aquí */}
           <DialogHeader>
             <DialogTitle>
               {currentProvider ? "Editar Proveedor" : "Agregar Nuevo Proveedor"}
@@ -401,42 +493,62 @@ const ProvidersPage: React.FC = () => {
                 : "Añade un nuevo proveedor a tu base de datos."}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleFormSubmit} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Nombre
-              </Label>
-              <Input
-                id="name"
-                value={formValues.name}
-                onChange={handleFormChange}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="contactInfo" className="text-right">
-                Contacto
-              </Label>
-              <Input
-                id="contactInfo"
-                value={formValues.contactInfo}
-                onChange={handleFormChange}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="address" className="text-right">
-                Dirección
-              </Label>
-              <Input
-                id="address"
-                value={formValues.address}
-                onChange={handleFormChange}
-                className="col-span-3"
-              />
-            </div>
-            <DialogFooter>
+          {/* Formulario con la nueva estructura de cuadrícula */}
+          <form
+            onSubmit={handleFormSubmit}
+            className="grid grid-cols-[auto_1fr] items-center gap-4 py-4"
+          >
+            <Label htmlFor="name" className="text-right">
+              Nombre
+            </Label>
+            <Input
+              id="name"
+              value={formValues.name}
+              onChange={handleFormChange}
+              required
+            />
+
+            {/* Sección de Información de Contacto - abarca ambas columnas */}
+            <h4 className="col-span-2 text-left text-sm font-semibold mt-2 mb-1">
+              Información de Contacto
+            </h4>
+
+            <Label htmlFor="email" className="text-right">
+              Correo
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={formValues.email}
+              onChange={handleFormChange}
+              maxLength={50}
+              placeholder="ejemplo@dominio.com"
+            />
+
+            <Label htmlFor="phoneNumber" className="text-right">
+              Teléfono Fijo
+            </Label>
+            <Input
+              id="phoneNumber"
+              type="tel"
+              value={formValues.phoneNumber}
+              onChange={handleFormChange}
+              maxLength={8}
+              placeholder="12345678"
+            />
+
+            <Label htmlFor="address" className="text-right">
+              Dirección
+            </Label>
+            <Input
+              id="address"
+              value={formValues.address}
+              onChange={handleFormChange}
+            />
+
+            <DialogFooter className="col-span-2">
+              {" "}
+              {/* Footer también abarca ambas columnas */}
               <Button type="submit">Guardar cambios</Button>
             </DialogFooter>
           </form>
