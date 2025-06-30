@@ -57,6 +57,7 @@ const MedicalCentersPage: React.FC = () => {
   // Paginación y búsqueda
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalItems, setTotalItems] = useState<number>(0); // Estado para el total de ítems
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [limit] = useState<number>(10); // Número de elementos por página
 
@@ -94,6 +95,7 @@ const MedicalCentersPage: React.FC = () => {
       setMedicalCenters(response.data); // Asume que 'data' es la clave para la lista de centros
       setTotalPages(response.totalPages);
       setCurrentPage(response.currentPage);
+      setTotalItems(response.totalItems); // Actualizar totalItems
     } catch (err) {
       const apiError = err as ApiError;
       console.error("Error al obtener centros médicos:", apiError);
@@ -148,6 +150,45 @@ const MedicalCentersPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
+    const email = formValues.email?.trim() || "";
+    const phoneNumber = formValues.phoneNumber?.trim() || "";
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    const phoneRegex = /^\d{8}$/;
+
+    let isValid = true;
+
+    // Validation checks from ProvidersPage.tsx
+    if (!email && !phoneNumber) {
+      toast.error("Introduzca al menos un método de contacto.");
+      isValid = false;
+    }
+
+    if (email) {
+      if (!emailRegex.test(email)) {
+        toast.error("El formato del correo electrónico es inválido.");
+        isValid = false;
+      }
+      if (email.length > 50) {
+        toast.error("El correo electrónico no debe exceder los 50 caracteres.");
+        isValid = false;
+      }
+    }
+
+    if (phoneNumber) {
+      if (!phoneRegex.test(phoneNumber)) {
+        toast.error(
+          "El número de teléfono fijo debe tener exactamente 8 dígitos."
+        );
+        isValid = false;
+      }
+    }
+
+    if (!isValid) {
+      setIsLoading(false); // Stop loading if validation fails
+      return;
+    }
+
     // Limpiar campos vacíos antes de enviar para que el backend maneje opcionales
     const dataToSend: MedicalCenterFormValues = { ...formValues };
     if (!dataToSend.email) delete dataToSend.email;
@@ -194,7 +235,20 @@ const MedicalCentersPage: React.FC = () => {
       await medicalCenterService.deleteMedicalCenter(currentMedicalCenter._id);
       toast.success("Centro médico eliminado exitosamente.");
       setIsConfirmDeleteOpen(false);
-      fetchMedicalCenters(); // Recargar la lista
+
+      const updatedTotalItems = totalItems - 1;
+
+      if (
+        medicalCenters.length === 1 &&
+        currentPage > 1 &&
+        updatedTotalItems > 0
+      ) {
+        setCurrentPage(currentPage - 1);
+      } else if (updatedTotalItems === 0) {
+        setCurrentPage(1);
+      } else {
+        fetchMedicalCenters();
+      }
     } catch (err) {
       const apiError = err as ApiError;
       console.error("Error al eliminar centro médico:", apiError);
@@ -270,50 +324,59 @@ const MedicalCentersPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">
+    <div className="container mx-auto py-10">
+      <h1 className="text-3xl font-bold tracking-tight mb-8">
         Gestión de Centros Médicos
       </h1>
 
       {error && <div className="text-red-500 mb-4">{error}</div>}
 
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex items-center justify-between mb-6">
+        <Input
+          type="text"
+          placeholder="Buscar centro médico..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="max-w-sm"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleSearch();
+            }
+          }}
+        />
         <div className="flex space-x-2">
-          <Input
-            type="text"
-            placeholder="Buscar por nombre, dirección, email o teléfono..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-80"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleSearch();
-              }
-            }}
-          />
-          <Button onClick={handleSearch}>Buscar</Button>
-        </div>
-        <div className="flex space-x-2">
-          <Button onClick={handleExportExcel} disabled={isLoading}>
-            <DownloadIcon className="mr-2 h-4 w-4" /> Exportar Excel
-          </Button>
-          <Button onClick={handleExportWord} disabled={isLoading}>
-            <FileTextIcon className="mr-2 h-4 w-4" /> Exportar Word
-          </Button>
           {isAdmin && (
-            <Button onClick={openCreateDialog}>Crear Centro Médico</Button>
+            <Button onClick={openCreateDialog}>Agregar Centro Médico</Button>
           )}
+          <Button
+            variant="excel"
+            onClick={handleExportExcel}
+            disabled={isLoading}
+          >
+            <DownloadIcon className="mr-2 h-4 w-4" /> Excel
+          </Button>
+          <Button
+            variant="word"
+            onClick={handleExportWord}
+            disabled={isLoading}
+          >
+            <FileTextIcon className="mr-2 h-4 w-4" /> Word
+          </Button>
         </div>
       </div>
 
-      <div className="rounded-md border overflow-hidden shadow-sm">
+      <p className="mb-2 text-sm text-gray-600">
+        Total de centros médicos: {totalItems}
+      </p>
+
+      <div className="border rounded-md">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-100">
+            <TableRow>
               <TableHead className="w-[200px]">Nombre</TableHead>
+              <TableHead>Correo Electrónico</TableHead>
+              <TableHead>Teléfono Fijo</TableHead>
               <TableHead>Dirección</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Teléfono</TableHead>
               <TableHead className="w-[150px] text-right">Acciones</TableHead>
             </TableRow>
           </TableHeader>
@@ -334,14 +397,14 @@ const MedicalCentersPage: React.FC = () => {
               medicalCenters.map((center) => (
                 <TableRow key={center._id}>
                   <TableCell className="font-medium">{center.name}</TableCell>
-                  <TableCell>{center.address}</TableCell>
                   <TableCell>{center.email || "N/A"}</TableCell>
                   <TableCell>{center.phoneNumber || "N/A"}</TableCell>
+                  <TableCell>{center.address}</TableCell>
                   <TableCell className="text-right">
                     {isAdmin && (
                       <>
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
                           onClick={() => openEditDialog(center)}
                           className="mr-2"
@@ -365,21 +428,21 @@ const MedicalCentersPage: React.FC = () => {
         </Table>
       </div>
 
-      <Pagination className="mt-6">
+      <Pagination className="mt-8">
         <PaginationContent>
           <PaginationItem>
             <PaginationPrevious
-              href="#"
               onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-              isActive={currentPage > 1}
+              className={
+                currentPage === 1 ? "pointer-events-none opacity-50" : undefined
+              }
             />
           </PaginationItem>
           {Array.from({ length: totalPages }, (_, i) => (
             <PaginationItem key={i}>
               <PaginationLink
-                href="#"
+                isActive={i + 1 === currentPage}
                 onClick={() => handlePageChange(i + 1)}
-                isActive={currentPage === i + 1}
               >
                 {i + 1}
               </PaginationLink>
@@ -387,18 +450,21 @@ const MedicalCentersPage: React.FC = () => {
           ))}
           <PaginationItem>
             <PaginationNext
-              href="#"
               onClick={() =>
                 handlePageChange(Math.min(totalPages, currentPage + 1))
               }
-              isActive={currentPage < totalPages}
+              className={
+                currentPage === totalPages
+                  ? "pointer-events-none opacity-50"
+                  : undefined
+              }
             />
           </PaginationItem>
         </PaginationContent>
       </Pagination>
 
       <Dialog open={isUpsertDialogOpen} onOpenChange={setIsUpsertDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
             <DialogTitle>
               {currentMedicalCenter ? "Editar" : "Crear"} Centro Médico
@@ -409,57 +475,56 @@ const MedicalCentersPage: React.FC = () => {
                 : "Añade un nuevo centro médico a la base de datos."}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleUpsertSubmit} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Nombre
-              </Label>
-              <Input
-                id="name"
-                value={formValues.name}
-                onChange={handleFormChange}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="address" className="text-right">
-                Dirección
-              </Label>
-              <Input
-                id="address"
-                value={formValues.address}
-                onChange={handleFormChange}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">
-                Email (Opcional)
-              </Label>
-              <Input
-                id="email"
-                type="email"
-                value={formValues.email}
-                onChange={handleFormChange}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="phoneNumber" className="text-right">
-                Teléfono (Opcional)
-              </Label>
-              <Input
-                id="phoneNumber"
-                type="tel"
-                value={formValues.phoneNumber}
-                onChange={handleFormChange}
-                className="col-span-3"
-                maxLength={8} // As per provider.model.ts for phone numbers
-              />
-            </div>
-            <DialogFooter>
+          <form
+            onSubmit={handleUpsertSubmit}
+            className="grid grid-cols-[auto_1fr] items-center gap-4 py-4"
+          >
+            <Label htmlFor="name" className="text-right">
+              Nombre
+            </Label>
+            <Input
+              id="name"
+              value={formValues.name}
+              onChange={handleFormChange}
+              required
+            />
+
+            <h4 className="col-span-2 text-left text-sm font-semibold mt-2 mb-1">
+              Información de Contacto
+            </h4>
+
+            <Label htmlFor="email" className="text-right">
+              Correo
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={formValues.email}
+              onChange={handleFormChange}
+              maxLength={50}
+              placeholder="ejemplo@dominio.com"
+            />
+            <Label htmlFor="phoneNumber" className="text-right">
+              Teléfono Fijo
+            </Label>
+            <Input
+              id="phoneNumber"
+              type="tel"
+              value={formValues.phoneNumber}
+              onChange={handleFormChange}
+              maxLength={8}
+              placeholder="12345678"
+            />
+            <Label htmlFor="address" className="text-right">
+              Dirección
+            </Label>
+            <Input
+              id="address"
+              value={formValues.address}
+              onChange={handleFormChange}
+              required
+            />
+            <DialogFooter className="col-span-2">
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? "Guardando..." : "Guardar cambios"}
               </Button>

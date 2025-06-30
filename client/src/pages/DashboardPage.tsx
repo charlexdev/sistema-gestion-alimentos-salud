@@ -1,5 +1,5 @@
 // client/src/pages/DashboardPage.tsx
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -20,10 +20,33 @@ interface FoodByUnitChartDataItem {
   fill: string;
 }
 
-// Define una interfaz local para el 'item' que el formatter de Tooltip recibe
-interface RechartsTooltipItem {
-  payload?: FoodByUnitChartDataItem;
-}
+// === Definición directa de colores OKLCH ===
+const lightThemeChartColors: string[] = [
+  "oklch(0.65 0.25 45)", // Naranja
+  "oklch(0.6 0.15 180)", // Cian
+  "oklch(0.45 0.1 270)", // Púrpura
+  "oklch(0.85 0.2 90)", // Verde brillante
+  "oklch(0.75 0.2 330)", // Rosa
+  "oklch(0.55 0.22 135)", // Verde azulado
+  "oklch(0.7 0.18 225)", // Azul claro
+  "oklch(0.6 0.2 15)", // Rojo anaranjado
+  "oklch(0.8 0.15 250)", // Índigo claro
+  "oklch(0.5 0.12 70)", // Amarillo verdoso
+];
+
+const darkThemeChartColors: string[] = [
+  "oklch(0.7 0.25 45)", // Naranja claro
+  "oklch(0.65 0.15 180)", // Cian claro
+  "oklch(0.5 0.1 270)", // Púrpura claro
+  "oklch(0.9 0.2 90)", // Verde brillante claro
+  "oklch(0.8 0.2 330)", // Rosa claro
+  "oklch(0.6 0.22 135)", // Verde azulado claro
+  "oklch(0.75 0.18 225)", // Azul claro
+  "oklch(0.65 0.2 15)", // Rojo anaranjado claro
+  "oklch(0.85 0.15 250)", // Índigo muy claro
+  "oklch(0.55 0.12 70)", // Amarillo verdoso claro
+];
+// ===========================================
 
 const DashboardPage: React.FC = () => {
   const {
@@ -37,8 +60,37 @@ const DashboardPage: React.FC = () => {
   const isError = isErrorFoods;
   const error = errorFoods;
 
+  const [currentChartColors, setCurrentChartColors] = useState<string[]>([]);
+
+  useEffect(() => {
+    const updateChartColors = () => {
+      const isDark = document.documentElement.classList.contains("dark");
+      if (isDark) {
+        setCurrentChartColors(darkThemeChartColors);
+      } else {
+        setCurrentChartColors(lightThemeChartColors);
+      }
+    };
+
+    // Initial call
+    updateChartColors();
+
+    // Observe changes in the 'dark' class on the documentElement
+    const observer = new MutationObserver(updateChartColors);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   const foodsByUnitChartData = React.useMemo(() => {
-    if (!foods?.data || foods.data.length === 0) {
+    if (
+      !foods?.data ||
+      foods.data.length === 0 ||
+      currentChartColors.length === 0
+    ) {
       return [];
     }
 
@@ -65,26 +117,14 @@ const DashboardPage: React.FC = () => {
     });
 
     const totalFoods = foods.data.length;
-    const colors = [
-      "oklch(var(--color-chart-1))",
-      "oklch(var(--color-chart-2))",
-      "oklch(var(--color-chart-3))",
-      "oklch(var(--color-chart-4))",
-      "oklch(var(--color-chart-5))",
-      "oklch(var(--color-chart-6))",
-      "oklch(var(--color-chart-7))",
-      "oklch(var(--color-chart-8))",
-      "oklch(var(--color-chart-9))",
-      "oklch(var(--color-chart-10))",
-    ];
 
     return Object.values(unitCounts).map((entry, index) => ({
       name: entry.name,
       value: (entry.count / totalFoods) * 100,
       count: entry.count,
-      fill: colors[index % colors.length],
+      fill: currentChartColors[index % currentChartColors.length],
     }));
-  }, [foods]);
+  }, [foods, currentChartColors]);
 
   if (isLoading) {
     return (
@@ -116,7 +156,7 @@ const DashboardPage: React.FC = () => {
           </CardHeader>
           <CardContent>
             {foodsByUnitChartData.length > 0 ? (
-              <ChartContainer config={{}} className="min-h-[250px] w-full">
+              <ChartContainer config={{}} className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
@@ -135,20 +175,21 @@ const DashboardPage: React.FC = () => {
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(
-                        value: number,
-                        name: string,
-                        item: RechartsTooltipItem
-                      ) => {
-                        if (item.payload) {
-                          return [
-                            `${value.toFixed(2)}% (${
-                              item.payload.count
-                            } items)`,
-                            name,
-                          ];
+                      // Use a div with Tailwind classes for consistent styling with Shadcn
+                      content={({ payload }) => {
+                        if (payload && payload.length) {
+                          const item = payload[0]
+                            .payload as FoodByUnitChartDataItem;
+                          return (
+                            <div className="rounded-md border bg-popover px-3 py-2 text-sm text-popover-foreground shadow-md">
+                              <p className="font-bold">{item.name}</p>
+                              <p>
+                                {item.value.toFixed(2)}% ({item.count} items)
+                              </p>
+                            </div>
+                          );
                         }
-                        return [`${value.toFixed(2)}%`, name];
+                        return null;
                       }}
                     />
                     <Legend />

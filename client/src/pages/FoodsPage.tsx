@@ -391,7 +391,7 @@ const FoodsPage: React.FC = () => {
           <Button
             onClick={handleExportToExcel}
             className="w-full md:w-auto"
-            variant="outline"
+            variant="excel"
             disabled={isLoading}
           >
             <DownloadIcon className="mr-2 h-4 w-4" /> Excel
@@ -399,7 +399,7 @@ const FoodsPage: React.FC = () => {
           <Button
             onClick={handleExportToWord}
             className="w-full md:w-auto"
-            variant="outline"
+            variant="word"
             disabled={isLoading}
           >
             <FileTextIcon className="mr-2 h-4 w-4" /> Word

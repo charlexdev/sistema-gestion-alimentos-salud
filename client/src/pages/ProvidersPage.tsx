@@ -335,10 +335,10 @@ const ProvidersPage: React.FC = () => {
           {isAdmin && (
             <Button onClick={handleCreateClick}>Agregar Proveedor</Button>
           )}
-          <Button variant="outline" onClick={handleExportExcel}>
+          <Button variant="excel" onClick={handleExportExcel}>
             <DownloadIcon className="mr-2 h-4 w-4" /> Excel
           </Button>
-          <Button variant="outline" onClick={handleExportWord}>
+          <Button variant="word" onClick={handleExportWord}>
             <FileTextIcon className="mr-2 h-4 w-4" /> Word
           </Button>
         </div>
