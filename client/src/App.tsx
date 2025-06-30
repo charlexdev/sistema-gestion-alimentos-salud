@@ -1,4 +1,3 @@
-// frontend/src/App.tsx
 import {
   Navigate,
   Route,
@@ -9,13 +8,18 @@ import PrivateRoute from "./components/PrivateRoute";
 import MainLayout from "./layouts/MainLayout";
 import FoodsPage from "./pages/FoodsPage";
 import LoginPage from "./pages/LoginPage";
-import MedicalCentersPage from "./pages/MedicalCentersPage";
-import PlansPage from "./pages/PlansPage";
+// import MedicalCentersPage from "./pages/MedicalCentersPage"; // Ya importado más abajo si estaba
 import ProvidersPage from "./pages/ProvidersPage";
 import UnitsOfMeasurementPage from "./pages/UnitsOfMeasurementPage";
 import { RegisterPage } from "./pages/RegisterPage";
 import DashboardPage from "./pages/DashboardPage";
-import UsersPage from "./pages/UsersPage"; // <--- ¡IMPORTA TU COMPONENTE USERS PAGE AQUÍ!
+import UsersPage from "./pages/UsersPage";
+
+// Importar las 4 páginas nuevas y las existentes confirmadas
+import FoodEntriesPage from "./pages/FoodEntriesPage";
+import FoodPlansPage from "./pages/FoodPlansPage";
+import MedicalCentersPage from "./pages/MedicalCentersPage"; // Asegurarse de que esté aquí si es una de las 4 "nuevas" a configurar
+import StockPage from "./pages/StockPage";
 
 // Opcional: Página de Acceso No Autorizado
 const UnauthorizedPage = () => (
@@ -50,19 +54,26 @@ function App() {
             <Route index element={<Navigate to="/dashboard" replace />} />{" "}
             {/* Redirige la raíz a dashboard */}
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/medical-centers" element={<MedicalCentersPage />} />
+            <Route
+              path="/medical-centers"
+              element={<MedicalCentersPage />}
+            />{" "}
+            {/* Ruta para Centros Médicos */}
             <Route
               path="/units-of-measurement"
               element={<UnitsOfMeasurementPage />}
             />
             <Route path="/providers" element={<ProvidersPage />} />
             <Route path="/foods" element={<FoodsPage />} />
-            <Route path="/plans" element={<PlansPage />} />
+            <Route path="/foodplans" element={<FoodPlansPage />} />{" "}
+            {/* Ruta para Planes de Alimentos */}
+            <Route path="/food-entries" element={<FoodEntriesPage />} />{" "}
+            {/* Ruta para Entradas de Alimentos */}
+            <Route path="/stock" element={<StockPage />} />{" "}
+            {/* Ruta para Stock */}
             {/* Rutas específicas para administradores */}
-            {/* ESTE ES EL CAMBIO CLAVE: Usa PrivateRoute con allowedRoles="admin" y renderiza UsersPage */}
             <Route element={<PrivateRoute allowedRoles={["admin"]} />}>
               <Route path="/users" element={<UsersPage />} />{" "}
-              {/* <-- ¡AHORA SÍ USA TU COMPONENTE USERS PAGE! */}
             </Route>
           </Route>
         </Route>

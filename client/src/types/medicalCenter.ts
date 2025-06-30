@@ -3,8 +3,9 @@
 export interface IMedicalCenter {
   _id: string;
   name: string;
-  address?: string;
-  contactInfo?: string;
+  address: string;
+  email?: string;
+  phoneNumber?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -12,20 +13,22 @@ export interface IMedicalCenter {
 export interface MedicalCenterFormValues {
   name: string;
   address: string;
-  contactInfo: string;
+  email?: string;
+  phoneNumber?: string;
 }
 
 export interface MedicalCenterQueryParams {
   page?: number;
   limit?: number;
   search?: string;
-  name?: string;
+  // Puedes añadir otros parámetros de consulta si son necesarios,
+  // como filtrar por si tienen email o phoneNumber, etc.
 }
 
-// *** IMPORTANTE: Esta interfaz DEBE estar aquí y EXPORTADA. ***
 export interface MedicalCenterListResponse {
-  medicalCenters: IMedicalCenter[];
-  totalCount: number;
-  currentPage: number;
+  data: IMedicalCenter[];
+  totalItems: number;
   totalPages: number;
+  currentPage: number;
+  itemsPerPage: number;
 }

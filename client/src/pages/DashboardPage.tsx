@@ -7,21 +7,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  Bar,
-  BarChart,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  Legend,
-} from "recharts";
+import { ResponsiveContainer, Legend } from "recharts";
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart";
-import { useMedicalCenters } from "@/hooks/useMedicalCenters";
+import { ChartContainer } from "@/components/ui/chart";
 import { useFoods } from "@/hooks/useFoods";
 
 // Define la interfaz para los datos del gráfico de pastel
@@ -39,39 +27,15 @@ interface RechartsTooltipItem {
 
 const DashboardPage: React.FC = () => {
   const {
-    data: medicalCenters,
-    isLoading: isLoadingMedicalCenters,
-    isError: isErrorMedicalCenters,
-    error: errorMedicalCenters,
-  } = useMedicalCenters({ page: 1, limit: 9999, search: "" });
-
-  const {
     data: foods,
     isLoading: isLoadingFoods,
     isError: isErrorFoods,
     error: errorFoods,
   } = useFoods({ page: 1, limit: 9999, search: "" });
 
-  const mockProvidersCount = 75;
-  const mockUnitsCount = 12;
-  const mockPlansCount = 20;
-
-  const isLoading = isLoadingMedicalCenters || isLoadingFoods;
-  const isError = isErrorMedicalCenters || isErrorFoods;
-  const error = errorMedicalCenters || errorFoods;
-
-  const systemRecordsChartData = React.useMemo(() => {
-    const medicalCentersCount = medicalCenters?.length || 0;
-    const actualFoodsCount = foods?.data?.length || 0;
-
-    return [
-      { category: "Centros Médicos", total: medicalCentersCount },
-      { category: "Proveedores", total: mockProvidersCount },
-      { category: "Unidades de Medida", total: mockUnitsCount },
-      { category: "Planes", total: mockPlansCount },
-      { category: "Alimentos", total: actualFoodsCount },
-    ];
-  }, [medicalCenters, foods]);
+  const isLoading = isLoadingFoods;
+  const isError = isErrorFoods;
+  const error = errorFoods;
 
   const foodsByUnitChartData = React.useMemo(() => {
     if (!foods?.data || foods.data.length === 0) {
@@ -143,84 +107,6 @@ const DashboardPage: React.FC = () => {
       <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Card className="col-span-1 md:col-span-2">
-          <CardHeader>
-            <CardTitle>Total de Registros del Sistema</CardTitle>
-            <CardDescription>
-              Conteo total de entidades clave en el sistema.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {systemRecordsChartData.length > 0 ? (
-              <ChartContainer
-                config={{
-                  "Centros Médicos": {
-                    label: "Centros Médicos",
-                    color: "oklch(var(--color-chart-1))",
-                  },
-                  Proveedores: {
-                    label: "Proveedores",
-                    color: "oklch(var(--color-chart-2))",
-                  },
-                  "Unidades de Medida": {
-                    label: "Unidades de Medida",
-                    color: "oklch(var(--color-chart-3))",
-                  },
-                  Planes: {
-                    label: "Planes",
-                    color: "oklch(var(--color-chart-4))",
-                  },
-                  Alimentos: {
-                    label: "Alimentos",
-                    color: "oklch(var(--color-chart-5))",
-                  },
-                  Usuarios: {
-                    label: "Usuarios",
-                    color: "oklch(var(--color-chart-6))",
-                  },
-                  total: { label: "Total", color: "oklch(var(--primary))" },
-                }}
-                className="min-h-[250px] w-full"
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={systemRecordsChartData} layout="vertical">
-                    <XAxis
-                      type="number"
-                      stroke="#888888"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey="category"
-                      stroke="#888888"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                      width={120}
-                    />
-                    <ChartTooltip
-                      cursor={false}
-                      content={<ChartTooltipContent />}
-                    />
-                    <Legend />
-                    <Bar
-                      dataKey="total"
-                      fill="oklch(var(--color-chart-1))"
-                      radius={[0, 4, 4, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            ) : (
-              <p className="text-center text-muted-foreground">
-                No hay datos de registros para mostrar.
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
         <Card className="col-span-1 md:col-span-1">
           <CardHeader>
             <CardTitle>Alimentos por Unidad de Medida</CardTitle>

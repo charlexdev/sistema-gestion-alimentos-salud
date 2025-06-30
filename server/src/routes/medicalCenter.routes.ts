@@ -6,9 +6,9 @@ import {
   getMedicalCenterById,
   updateMedicalCenter,
   deleteMedicalCenter,
-  getMedicalCenterInventory,
-  exportMedicalCentersToExcel, // <--- NUEVO: Importar la función de exportar a Excel
-  exportMedicalCentersToWord, // <--- NUEVO: Importar la función de exportar a Word
+  getMedicalCenterStock, // Nueva ruta para ver el stock
+  exportMedicalCentersToExcel, // Para reportes
+  exportMedicalCentersToWord, // Para reportes
 } from "../controllers/medicalCenter.controller";
 import {
   authenticateToken,
@@ -17,21 +17,31 @@ import {
 
 const router = Router();
 
-// Rutas para la gestión de centros médicos
+// Rutas para la gestión de Centros Médicos
+
+// Crear Centro Médico (Solo administradores)
 router.post(
   "/",
   authenticateToken,
   authorizeRole(["admin"]),
   createMedicalCenter
 );
+
+// Obtener todos los Centros Médicos (Usuarios autenticados)
 router.get("/", authenticateToken, getAllMedicalCenters);
+
+// Obtener un Centro Médico por ID (Usuarios autenticados)
 router.get("/:id", authenticateToken, getMedicalCenterById);
+
+// Actualizar Centro Médico (Solo administradores)
 router.put(
   "/:id",
   authenticateToken,
   authorizeRole(["admin"]),
   updateMedicalCenter
 );
+
+// Eliminar Centro Médico (Solo administradores)
 router.delete(
   "/:id",
   authenticateToken,
@@ -39,11 +49,11 @@ router.delete(
   deleteMedicalCenter
 );
 
-// NUEVA RUTA: Obtener existencias de alimentos por centro médico (RF-7 - Usuarios autenticados)
-router.get("/:id/inventory", authenticateToken, getMedicalCenterInventory);
+// Obtener stock de un centro médico por ID (Usuarios autenticados)
+router.get("/:id/stock", authenticateToken, getMedicalCenterStock); // GET /api/medical-centers/:id/stock
 
-// NUEVAS RUTAS DE EXPORTACIÓN
-router.get("/export/excel", authenticateToken, exportMedicalCentersToExcel); // <--- NUEVA RUTA
-router.get("/export/word", authenticateToken, exportMedicalCentersToWord); // <--- NUEVA RUTA
+// Rutas de exportación de reportes para Centros Médicos
+router.get("/export/excel", authenticateToken, exportMedicalCentersToExcel);
+router.get("/export/word", authenticateToken, exportMedicalCentersToWord);
 
 export default router;

@@ -351,7 +351,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
         <div className="flex w-full md:w-auto gap-2">
           {isAdmin && ( // Conditional rendering for "Crear Unidad de Medida" button
             <Button onClick={handleCreateClick} className="w-full md:w-auto">
-              Crear Unidad de Medida
+              Agregar Unidad de Medida
             </Button>
           )}
           <Button

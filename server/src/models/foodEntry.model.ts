@@ -1,56 +1,50 @@
 // server/src/models/foodEntry.model.ts
 import { Schema, model, Document, Types } from "mongoose";
-import { IFood } from "./food.model";
 import { IMedicalCenter } from "./medicalCenter.model";
-import { IProvider } from "./provider.model"; // <-- Importar la interfaz de Proveedor
+import { IProvider } from "./provider.model";
+import { IFood } from "./food.model";
+import { IFoodPlan } from "./foodPlan.model"; // Importar el modelo de Plan de Alimentos
 
-// Interfaz para cada item de alimento dentro de un registro de entrada
-export interface IFoodEntryItem {
-  food: Types.ObjectId | IFood; // Referencia al ID del alimento
-  quantity: number; // Cantidad de ese alimento que entra
+// Interfaz para los detalles de alimentos en una entrada
+export interface IEnteredFood {
+  food: Types.ObjectId | IFood;
+  quantity: number;
 }
 
-// Interfaz para el Registro de Entrada de Alimentos
 export interface IFoodEntry extends Document {
-  name: string; // Nombre/descripción de la entrada (ej. "Entrega Semanal Hospital Pediátrico")
-  date: Date; // Fecha en que se realizó la entrada
-  medicalCenter: Types.ObjectId | IMedicalCenter; // Centro médico que recibe la entrada
-  provider: Types.ObjectId | IProvider; // Proveedor de la entrada
-  entryItems: IFoodEntryItem[]; // Array de ítems de alimentos entrantes
+  medicalCenter: Types.ObjectId | IMedicalCenter;
+  provider: Types.ObjectId | IProvider;
+  foodPlan: Types.ObjectId | IFoodPlan; // Vínculo directo al plan específico
+  entryDate: Date;
+  enteredFoods: IEnteredFood[]; // Array de alimentos y cantidades en esta entrada
+  createdAt: Date;
+  updatedAt: Date;
 }
 
-const FoodEntryItemSchema = new Schema<IFoodEntryItem>(
+const EnteredFoodSchema = new Schema<IEnteredFood>(
   {
-    food: {
-      type: Schema.Types.ObjectId,
-      ref: "Food",
-      required: true,
-    },
+    food: { type: Schema.Types.ObjectId, ref: "Food", required: true },
     quantity: {
       type: Number,
       required: true,
       min: 0,
+      max: 10000000000, // Diez mil millones
     },
   },
-  { _id: false }
+  { _id: false } // No crear un _id para subdocumentos
 );
 
 const FoodEntrySchema = new Schema<IFoodEntry>(
   {
-    name: { type: String, required: true, trim: true },
-    date: { type: Date, required: true },
     medicalCenter: {
       type: Schema.Types.ObjectId,
       ref: "MedicalCenter",
       required: true,
     },
-    provider: {
-      // <-- Referencia al modelo de Proveedor
-      type: Schema.Types.ObjectId,
-      ref: "Provider",
-      required: true,
-    },
-    entryItems: [FoodEntryItemSchema],
+    provider: { type: Schema.Types.ObjectId, ref: "Provider", required: true },
+    foodPlan: { type: Schema.Types.ObjectId, ref: "FoodPlan", required: true }, // Referencia obligatoria a un plan
+    entryDate: { type: Date, required: true, default: Date.now },
+    enteredFoods: { type: [EnteredFoodSchema], default: [] }, // Array de subdocumentos
   },
   { timestamps: true }
 );

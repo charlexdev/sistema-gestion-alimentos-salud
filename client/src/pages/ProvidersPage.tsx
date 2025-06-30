@@ -333,13 +333,13 @@ const ProvidersPage: React.FC = () => {
         <div className="flex space-x-2">
           {/* BOTÓN "AGREGAR NUEVO PROVEEDOR" - Visible solo para administradores */}
           {isAdmin && (
-            <Button onClick={handleCreateClick}>Agregar Nuevo Proveedor</Button>
+            <Button onClick={handleCreateClick}>Agregar Proveedor</Button>
           )}
           <Button variant="outline" onClick={handleExportExcel}>
-            <DownloadIcon className="mr-2 h-4 w-4" /> Exportar a Excel
+            <DownloadIcon className="mr-2 h-4 w-4" /> Excel
           </Button>
           <Button variant="outline" onClick={handleExportWord}>
-            <FileTextIcon className="mr-2 h-4 w-4" /> Exportar a Word
+            <FileTextIcon className="mr-2 h-4 w-4" /> Word
           </Button>
         </div>
       </div>

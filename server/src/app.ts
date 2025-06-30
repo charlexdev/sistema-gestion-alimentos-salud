@@ -6,11 +6,12 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/auth.routes";
 import foodRoutes from "./routes/food.routes";
 import unitOfMeasurementRoutes from "./routes/unitOfMeasurement.routes";
-import planRoutes from "./routes/plan.routes";
-import medicalCenterRoutes from "./routes/medicalCenter.routes";
 import providerRoutes from "./routes/provider.routes";
-import foodEntryRoutes from "./routes/foodEntry.routes";
 import userRoutes from "./routes/user.routes";
+import foodEntryRoutes from "./routes/foodEntry.routes";
+import foodPlanRoutes from "./routes/foodPlan.routes";
+import medicalCenterRoutes from "./routes/medicalCenter.routes"; // Importar rutas de centros médicos
+import stockRoutes from "./routes/stock.routes"; // Importar rutas de stock
 
 // Cargar variables de entorno desde .env
 dotenv.config();
@@ -46,23 +47,21 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/foods", foodRoutes);
 app.use("/api/units", unitOfMeasurementRoutes);
-app.use("/api/plans", planRoutes);
-app.use("/api/medical-centers", medicalCenterRoutes);
 app.use("/api/providers", providerRoutes);
-app.use("/api/food-entries", foodEntryRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/foodentries", foodEntryRoutes);
+app.use("/api/foodplans", foodPlanRoutes);
+app.use("/api/medicalcenters", medicalCenterRoutes); // Usar rutas de centros médicos
+app.use("/api/stock", stockRoutes); // Usar rutas de stock
 
-// Definir el puerto
+// Definir el puerto y arrancar el servidor
 const PORT = process.env.PORT || 5000;
 
-// Iniciar el servidor y conectar a la DB
 const startServer = async () => {
   await connectDB();
   app.listen(PORT, () => {
-    console.log(`Servidor corriendo en el puerto ${PORT}`);
+    console.log(`Servidor ejecutándose en el puerto ${PORT}`);
   });
 };
 
 startServer();
-
-export default app;

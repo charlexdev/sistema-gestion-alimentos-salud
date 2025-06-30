@@ -4,15 +4,9 @@ import type {
   IMedicalCenter,
   MedicalCenterFormValues,
   MedicalCenterQueryParams,
-  MedicalCenterListResponse,
-} from "../types/medicalCenter";
-import medicalCenterService from "../api/services/medical-center";
-import type { AxiosRequestConfig } from "axios";
+} from "../types/medicalCenter"; // Asegúrate de que la ruta sea correcta
+import medicalCenterService from "../api/services/medicalCenterService"; // Asegúrate de que la ruta sea correcta
 import { toast } from "sonner";
-
-// Importaciones de componentes Shadcn UI
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -21,6 +15,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -38,65 +34,79 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-// Importa íconos de lucide-react para exportar
 import { DownloadIcon, FileTextIcon } from "lucide-react";
 
+// Import useUser hook from auth store (as seen in FoodsPage.tsx)
+import { useUser } from "@/stores/auth";
+
 // === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
-// Esto permite acceder a `error.response.data` de forma segura.
-interface AxiosErrorWithResponse<T = unknown> extends Error {
-  isAxiosError: boolean;
+interface ApiError extends Error {
   response?: {
-    data: {
-      message: string;
-      errors?: T;
+    data?: {
+      message?: string;
     };
-    status: number;
-    headers: AxiosRequestConfig["headers"];
+    status?: number;
   };
-  config: AxiosRequestConfig;
 }
 
 const MedicalCentersPage: React.FC = () => {
   const [medicalCenters, setMedicalCenters] = useState<IMedicalCenter[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [totalItems, setTotalItems] = useState(0);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Paginación y búsqueda
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [limit] = useState<number>(10); // Número de elementos por página
+
+  // Diálogo de creación/edición
+  const [isUpsertDialogOpen, setIsUpsertDialogOpen] = useState<boolean>(false);
   const [currentMedicalCenter, setCurrentMedicalCenter] =
     useState<IMedicalCenter | null>(null);
   const [formValues, setFormValues] = useState<MedicalCenterFormValues>({
     name: "",
     address: "",
-    contactInfo: "",
+    email: "",
+    phoneNumber: "",
   });
 
-  const limit = 10; // Items por página
+  // Diálogo de confirmación de eliminación
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] =
+    useState<boolean>(false);
+
+  // Rol del usuario para controlar permisos (tomado de FoodsPage.tsx)
+  const user = useUser();
+  const isAdmin = user?.role === "admin";
 
   const fetchMedicalCenters = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
     try {
       const params: MedicalCenterQueryParams = {
         page: currentPage,
         limit: limit,
-        search: searchQuery,
       };
-      const response: MedicalCenterListResponse =
-        await medicalCenterService.getMedicalCenters(params);
-      setMedicalCenters(response.medicalCenters);
-      setTotalItems(response.totalCount);
+      if (searchQuery) {
+        params.search = searchQuery;
+      }
+      const response = await medicalCenterService.getMedicalCenters(params);
+      setMedicalCenters(response.data); // Asume que 'data' es la clave para la lista de centros
       setTotalPages(response.totalPages);
-      setTotalCount(response.totalCount); // Asegúrate de actualizar totalCount
-    } catch (error) {
-      console.error("Error al obtener centros médicos:", error);
-      const axiosError = error as AxiosErrorWithResponse;
-      toast.error(
-        axiosError.response?.data?.message ||
-          "Error al cargar los centros médicos. Inténtalo de nuevo."
+      setCurrentPage(response.currentPage);
+    } catch (err) {
+      const apiError = err as ApiError;
+      console.error("Error al obtener centros médicos:", apiError);
+      setError(
+        apiError.response?.data?.message || "Error al cargar centros médicos."
       );
+      toast.error(
+        apiError.response?.data?.message || "Error al cargar centros médicos."
+      );
+    } finally {
+      setIsLoading(false);
     }
-  }, [currentPage, searchQuery]);
+  }, [currentPage, limit, searchQuery]);
 
   useEffect(() => {
     fetchMedicalCenters();
@@ -106,30 +116,26 @@ const MedicalCentersPage: React.FC = () => {
     setCurrentPage(page);
   };
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1); // Resetear a la primera página en cada búsqueda
+  const handleSearch = () => {
+    setCurrentPage(1); // Reset a la primera página en cada nueva búsqueda
+    fetchMedicalCenters();
   };
 
-  const handleCreateClick = () => {
+  const openCreateDialog = () => {
     setCurrentMedicalCenter(null);
-    setFormValues({ name: "", address: "", contactInfo: "" });
-    setIsFormOpen(true);
+    setFormValues({ name: "", address: "", email: "", phoneNumber: "" });
+    setIsUpsertDialogOpen(true);
   };
 
-  const handleEditClick = (medicalCenter: IMedicalCenter) => {
-    setCurrentMedicalCenter(medicalCenter);
+  const openEditDialog = (center: IMedicalCenter) => {
+    setCurrentMedicalCenter(center);
     setFormValues({
-      name: medicalCenter.name,
-      address: medicalCenter.address || "",
-      contactInfo: medicalCenter.contactInfo || "",
+      name: center.name,
+      address: center.address,
+      email: center.email || "", // Asegura que no sea undefined
+      phoneNumber: center.phoneNumber || "", // Asegura que no sea undefined
     });
-    setIsFormOpen(true);
-  };
-
-  const handleDeleteClick = (medicalCenter: IMedicalCenter) => {
-    setCurrentMedicalCenter(medicalCenter);
-    setIsConfirmDeleteOpen(true);
+    setIsUpsertDialogOpen(true);
   };
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -137,251 +143,273 @@ const MedicalCentersPage: React.FC = () => {
     setFormValues((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleFormSubmit = async (e: React.FormEvent) => {
+  const handleUpsertSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError(null);
+
+    // Limpiar campos vacíos antes de enviar para que el backend maneje opcionales
+    const dataToSend: MedicalCenterFormValues = { ...formValues };
+    if (!dataToSend.email) delete dataToSend.email;
+    if (!dataToSend.phoneNumber) delete dataToSend.phoneNumber;
+
     try {
       if (currentMedicalCenter) {
         await medicalCenterService.updateMedicalCenter(
           currentMedicalCenter._id,
-          formValues
+          dataToSend
         );
         toast.success("Centro médico actualizado exitosamente.");
       } else {
-        await medicalCenterService.createMedicalCenter(formValues);
+        await medicalCenterService.createMedicalCenter(dataToSend);
         toast.success("Centro médico creado exitosamente.");
       }
-      setIsFormOpen(false);
-      fetchMedicalCenters();
-    } catch (error) {
-      console.error("Error al guardar centro médico:", error);
-      const axiosError = error as AxiosErrorWithResponse;
-      const errorMessage =
-        axiosError.response?.data?.message ||
-        "Error al guardar el centro médico. Inténtalo de nuevo.";
-      toast.error(errorMessage);
+      setIsUpsertDialogOpen(false);
+      fetchMedicalCenters(); // Recargar la lista
+    } catch (err) {
+      const apiError = err as ApiError;
+      console.error("Error al guardar centro médico:", apiError);
+      setError(
+        apiError.response?.data?.message || "Error al guardar centro médico."
+      );
+      toast.error(
+        apiError.response?.data?.message || "Error al guardar centro médico."
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const handleDeleteClick = (center: IMedicalCenter) => {
+    setCurrentMedicalCenter(center);
+    setIsConfirmDeleteOpen(true);
+  };
+
   const handleConfirmDelete = async () => {
-    if (currentMedicalCenter) {
-      try {
-        await medicalCenterService.deleteMedicalCenter(
-          currentMedicalCenter._id
-        );
-        toast.success("Centro médico eliminado exitosamente.");
-        setIsConfirmDeleteOpen(false);
-        fetchMedicalCenters();
-      } catch (error) {
-        console.error("Error al eliminar centro médico:", error);
-        const axiosError = error as AxiosErrorWithResponse;
-        toast.error(
-          axiosError.response?.data?.message ||
-            "Error al eliminar el centro médico. Inténtalo de nuevo."
-        );
-      }
+    if (!currentMedicalCenter) return;
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      await medicalCenterService.deleteMedicalCenter(currentMedicalCenter._id);
+      toast.success("Centro médico eliminado exitosamente.");
+      setIsConfirmDeleteOpen(false);
+      fetchMedicalCenters(); // Recargar la lista
+    } catch (err) {
+      const apiError = err as ApiError;
+      console.error("Error al eliminar centro médico:", apiError);
+      setError(
+        apiError.response?.data?.message || "Error al eliminar centro médico."
+      );
+      toast.error(
+        apiError.response?.data?.message || "Error al eliminar centro médico."
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleExportExcel = async () => {
     try {
-      const params: MedicalCenterQueryParams = {
-        search: searchQuery,
-        limit: totalCount, // Para exportar todos los resultados de la búsqueda actual
-      };
-      const blob = await medicalCenterService.exportMedicalCentersToExcel(
+      setIsLoading(true);
+      const params: MedicalCenterQueryParams = {};
+      if (searchQuery) {
+        params.search = searchQuery;
+      }
+      const data = await medicalCenterService.exportMedicalCentersToExcel(
         params
       );
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `centros_medicos_${Date.now()}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success("Exportado a Excel exitosamente.");
-    } catch (error) {
-      console.error("Error al exportar a Excel:", error);
-      const axiosError = error as AxiosErrorWithResponse;
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "centros_medicos.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success("Centros médicos exportados a Excel exitosamente.");
+    } catch (err) {
+      const apiError = err as ApiError;
+      console.error("Error al exportar a Excel:", apiError);
       toast.error(
-        axiosError.response?.data?.message ||
-          "Error al exportar a Excel. Inténtalo de nuevo."
+        apiError.response?.data?.message ||
+          "Error al exportar centros médicos a Excel."
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleExportWord = async () => {
     try {
-      const params: MedicalCenterQueryParams = {
-        search: searchQuery,
-        limit: totalCount, // Para exportar todos los resultados de la búsqueda actual
-      };
-      const blob = await medicalCenterService.exportMedicalCentersToWord(
+      setIsLoading(true);
+      const params: MedicalCenterQueryParams = {};
+      if (searchQuery) {
+        params.search = searchQuery;
+      }
+      const data = await medicalCenterService.exportMedicalCentersToWord(
         params
       );
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `centros_medicos_${Date.now()}.docx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      toast.success("Exportado a Word exitosamente.");
-    } catch (error) {
-      console.error("Error al exportar a Word:", error);
-      const axiosError = error as AxiosErrorWithResponse;
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "centros_medicos.docx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success("Centros médicos exportados a Word exitosamente.");
+    } catch (err) {
+      const apiError = err as ApiError;
+      console.error("Error al exportar a Word:", apiError);
       toast.error(
-        axiosError.response?.data?.message ||
-          "Error al exportar a Word. Inténtalo de nuevo."
+        apiError.response?.data?.message ||
+          "Error al exportar centros médicos a Word."
       );
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Gestión de Centros Médicos</h1>
-      </div>
+    <div className="container mx-auto py-8">
+      <h1 className="text-3xl font-bold mb-6 text-gray-800">
+        Gestión de Centros Médicos
+      </h1>
 
-      <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
-        <Input
-          placeholder="Buscar centros médicos..."
-          value={searchQuery}
-          onChange={handleSearchChange}
-          className="max-w-sm"
-        />
-        <div className="flex w-full md:w-auto gap-2">
-          <Button onClick={handleCreateClick}>Agregar Centro Médico</Button>
-          <Button variant="outline" onClick={handleExportExcel}>
-            <DownloadIcon className="mr-2 h-4 w-4" /> Exportar a Excel
+      {error && <div className="text-red-500 mb-4">{error}</div>}
+
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex space-x-2">
+          <Input
+            type="text"
+            placeholder="Buscar por nombre, dirección, email o teléfono..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-80"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                handleSearch();
+              }
+            }}
+          />
+          <Button onClick={handleSearch}>Buscar</Button>
+        </div>
+        <div className="flex space-x-2">
+          <Button onClick={handleExportExcel} disabled={isLoading}>
+            <DownloadIcon className="mr-2 h-4 w-4" /> Exportar Excel
           </Button>
-          <Button variant="outline" onClick={handleExportWord}>
-            <FileTextIcon className="mr-2 h-4 w-4" /> Exportar a Word
+          <Button onClick={handleExportWord} disabled={isLoading}>
+            <FileTextIcon className="mr-2 h-4 w-4" /> Exportar Word
           </Button>
+          {isAdmin && (
+            <Button onClick={openCreateDialog}>Crear Centro Médico</Button>
+          )}
         </div>
       </div>
 
-      <div className="mb-2 text-sm text-gray-600">
-        Total de centros médicos: {totalItems}
+      <div className="rounded-md border overflow-hidden shadow-sm">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-gray-100">
+              <TableHead className="w-[200px]">Nombre</TableHead>
+              <TableHead>Dirección</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Teléfono</TableHead>
+              <TableHead className="w-[150px] text-right">Acciones</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8">
+                  Cargando centros médicos...
+                </TableCell>
+              </TableRow>
+            ) : medicalCenters.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8">
+                  No se encontraron centros médicos.
+                </TableCell>
+              </TableRow>
+            ) : (
+              medicalCenters.map((center) => (
+                <TableRow key={center._id}>
+                  <TableCell className="font-medium">{center.name}</TableCell>
+                  <TableCell>{center.address}</TableCell>
+                  <TableCell>{center.email || "N/A"}</TableCell>
+                  <TableCell>{center.phoneNumber || "N/A"}</TableCell>
+                  <TableCell className="text-right">
+                    {isAdmin && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditDialog(center)}
+                          className="mr-2"
+                        >
+                          Editar
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteClick(center)}
+                        >
+                          Eliminar
+                        </Button>
+                      </>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
 
-      {medicalCenters.length === 0 && searchQuery === "" && (
-        <p className="text-center text-muted-foreground py-10">
-          No hay centros médicos registrados. ¡Comienza agregando uno!
-        </p>
-      )}
+      <Pagination className="mt-6">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              href="#"
+              onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+              isActive={currentPage > 1}
+            />
+          </PaginationItem>
+          {Array.from({ length: totalPages }, (_, i) => (
+            <PaginationItem key={i}>
+              <PaginationLink
+                href="#"
+                onClick={() => handlePageChange(i + 1)}
+                isActive={currentPage === i + 1}
+              >
+                {i + 1}
+              </PaginationLink>
+            </PaginationItem>
+          ))}
+          <PaginationItem>
+            <PaginationNext
+              href="#"
+              onClick={() =>
+                handlePageChange(Math.min(totalPages, currentPage + 1))
+              }
+              isActive={currentPage < totalPages}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
 
-      {medicalCenters.length === 0 && searchQuery !== "" && (
-        <p className="text-center text-muted-foreground py-10">
-          No se encontraron centros médicos para la búsqueda "{searchQuery}".
-        </p>
-      )}
-
-      {medicalCenters.length > 0 && (
-        <>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[200px]">Nombre</TableHead>
-                  <TableHead>Dirección</TableHead>
-                  <TableHead>Información de Contacto</TableHead>
-                  <TableHead className="text-right">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {medicalCenters.map((medicalCenter) => (
-                  <TableRow key={medicalCenter._id}>
-                    <TableCell className="font-medium">
-                      {medicalCenter.name}
-                    </TableCell>
-                    <TableCell>{medicalCenter.address || "N/A"}</TableCell>
-                    <TableCell>{medicalCenter.contactInfo || "N/A"}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mr-2"
-                        onClick={() => handleEditClick(medicalCenter)}
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteClick(medicalCenter)}
-                      >
-                        Eliminar
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {totalPages > 1 && (
-            <Pagination className="mt-4">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() =>
-                      handlePageChange(currentPage > 1 ? currentPage - 1 : 1)
-                    }
-                    className={
-                      currentPage === 1
-                        ? "pointer-events-none opacity-50"
-                        : undefined
-                    }
-                  />
-                </PaginationItem>
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <PaginationItem key={i}>
-                    <PaginationLink
-                      onClick={() => handlePageChange(i + 1)}
-                      isActive={i + 1 === currentPage}
-                    >
-                      {i + 1}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() =>
-                      handlePageChange(
-                        currentPage < totalPages ? currentPage + 1 : totalPages
-                      )
-                    }
-                    className={
-                      currentPage === totalPages
-                        ? "pointer-events-none opacity-50"
-                        : undefined
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          )}
-        </>
-      )}
-
-      {/* Modal de Creación/Edición */}
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+      <Dialog open={isUpsertDialogOpen} onOpenChange={setIsUpsertDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>
-              {currentMedicalCenter
-                ? "Editar Centro Médico"
-                : "Crear Centro Médico"}
+              {currentMedicalCenter ? "Editar" : "Crear"} Centro Médico
             </DialogTitle>
             <DialogDescription>
               {currentMedicalCenter
-                ? "Modifica los detalles del centro médico existente."
-                : "Añade un nuevo centro médico a tu registro."}
+                ? "Modifica los detalles del centro médico."
+                : "Añade un nuevo centro médico a la base de datos."}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleFormSubmit} className="grid gap-4 py-4">
+          <form onSubmit={handleUpsertSubmit} className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
                 Nombre
@@ -403,49 +431,67 @@ const MedicalCentersPage: React.FC = () => {
                 value={formValues.address}
                 onChange={handleFormChange}
                 className="col-span-3"
+                required
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="contactInfo" className="text-right">
-                Contacto
+              <Label htmlFor="email" className="text-right">
+                Email (Opcional)
               </Label>
               <Input
-                id="contactInfo"
-                value={formValues.contactInfo}
+                id="email"
+                type="email"
+                value={formValues.email}
                 onChange={handleFormChange}
                 className="col-span-3"
               />
             </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="phoneNumber" className="text-right">
+                Teléfono (Opcional)
+              </Label>
+              <Input
+                id="phoneNumber"
+                type="tel"
+                value={formValues.phoneNumber}
+                onChange={handleFormChange}
+                className="col-span-3"
+                maxLength={8} // As per provider.model.ts for phone numbers
+              />
+            </div>
             <DialogFooter>
-              <Button type="submit">Guardar cambios</Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Guardando..." : "Guardar cambios"}
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Confirmación de Eliminación */}
       <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>¿Estás absolutamente seguro?</DialogTitle>
             <DialogDescription>
               Esta acción no se puede deshacer. Esto eliminará permanentemente
-              el centro médico "
-              <span className="font-semibold">
-                {currentMedicalCenter?.name}
-              </span>
-              " de la base de datos.
+              el centro médico "{currentMedicalCenter?.name}" de la base de
+              datos.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => setIsConfirmDeleteOpen(false)}
+              disabled={isLoading}
             >
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
-              Eliminar
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isLoading}
+            >
+              {isLoading ? "Eliminando..." : "Eliminar"}
             </Button>
           </DialogFooter>
         </DialogContent>
