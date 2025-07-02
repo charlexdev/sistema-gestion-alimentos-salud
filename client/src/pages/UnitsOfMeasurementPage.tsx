@@ -113,7 +113,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
   });
 
   // Get the logged-in user from the Zustand store (NEW)
-  const user = useUser(); //
+  const user = useUser();
   const isAdmin = user?.role === "admin"; // Check if the user has the 'admin' role
 
   const handleAxiosError = useCallback(
@@ -218,8 +218,19 @@ const UnitsOfMeasurementPage: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
-    if (formValues.symbol!.length > 5) {
-      toast.error("El símbolo no puede tener más de 5 caracteres.");
+    // Validate name length
+    if (formValues.name.length < 2 || formValues.name.length > 40) {
+      toast.error("El nombre debe tener entre 2 y 40 caracteres.");
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate symbol length
+    if (
+      (formValues.symbol ?? "").length < 2 ||
+      (formValues.symbol ?? "").length > 6
+    ) {
+      toast.error("El símbolo debe tener entre 2 y 6 caracteres.");
       setIsLoading(false);
       return;
     }
@@ -342,7 +353,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
       <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-2">
         <Input
           type="text"
-          placeholder="Buscar por nombre o símbolo"
+          placeholder="Buscar unidad de medida..."
           value={searchQuery}
           onChange={handleSearchChange}
           className="max-w-sm"
@@ -373,7 +384,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="mb-2 text-sm text-gray-600">
+      <div className="mb-2 text-sm text-yellow-600">
         Total de unidades de medida: {totalCount}
       </div>
 
@@ -506,7 +517,7 @@ const UnitsOfMeasurementPage: React.FC = () => {
                   value={formValues.symbol}
                   onChange={handleFormChange}
                   className="col-span-3"
-                  maxLength={5}
+                  maxLength={6} // Changed from 5 to 6 to allow 6 characters
                 />
               </div>
             </div>

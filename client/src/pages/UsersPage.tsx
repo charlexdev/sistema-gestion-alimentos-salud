@@ -32,6 +32,13 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { DownloadIcon, FileTextIcon } from "lucide-react";
 import { useUser } from "@/stores/auth";
 
@@ -109,8 +116,10 @@ const UsersPage: React.FC = () => {
   const [isEditMode, setIsEditMode] = useState(false);
 
   const [emailError, setEmailError] = useState<string | null>(null);
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  const [roleFilter, setRoleFilter] = useState<"admin" | "user" | "">("");
+  const [roleFilter, setRoleFilter] = useState<"admin" | "user" | "all">("all");
 
   const authenticatedUser = useUser();
   const userRole = authenticatedUser?.role;
@@ -144,7 +153,8 @@ const UsersPage: React.FC = () => {
         page: currentPage,
         limit: itemsPerPage,
         search: searchTerm,
-        ...(roleFilter && { role: roleFilter as "admin" | "user" }),
+        // Convert "all" to an empty string for the API, or simply omit the role parameter
+        ...(roleFilter !== "all" && { role: roleFilter as "admin" | "user" }), // This line ensures 'role' is only included if not 'all'
       };
       const response = await userService.getUsers(params);
 
@@ -192,6 +202,27 @@ const UsersPage: React.FC = () => {
         setEmailError(null);
       }
     }
+
+    // Username validation on change
+    if (id === "username") {
+      if (value.length < 6 || value.length > 40) {
+        setUsernameError(
+          "El nombre de usuario debe tener entre 6 y 40 caracteres."
+        );
+      } else {
+        setUsernameError(null);
+      }
+    }
+
+    // Password validation on change
+    if (id === "password") {
+      if (value.length > 0 && (value.length < 6 || value.length > 40)) {
+        // Only validate if password is not empty
+        setPasswordError("La contraseña debe tener entre 6 y 40 caracteres.");
+      } else {
+        setPasswordError(null);
+      }
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -207,6 +238,20 @@ const UsersPage: React.FC = () => {
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formValues.email)) {
       toast.error("El correo electrónico no tiene un formato válido.");
+      setIsLoading(false);
+      return;
+    }
+
+    // Final username validation
+    if (formValues.username.length < 6 || formValues.username.length > 40) {
+      toast.error("El nombre de usuario debe tener entre 6 y 40 caracteres.");
+      setIsLoading(false);
+      return;
+    }
+
+    // Final password validation
+    if (formValues.password.length < 6 || formValues.password.length > 40) {
+      toast.error("La contraseña debe tener entre 6 y 40 caracteres.");
       setIsLoading(false);
       return;
     }
@@ -257,6 +302,8 @@ const UsersPage: React.FC = () => {
       setCurrentUser(null);
       setIsEditMode(false);
       setEmailError(null); // Clear error on successful submission
+      setUsernameError(null);
+      setPasswordError(null);
       fetchUsers();
     } catch (error) {
       handleAxiosError(error, "usuario");
@@ -271,6 +318,8 @@ const UsersPage: React.FC = () => {
     setIsEditMode(false);
     setIsFormModalOpen(true);
     setEmailError(null); // Clear error when opening for creation
+    setUsernameError(null);
+    setPasswordError(null);
   };
 
   const handleEditClick = (user: User & { _id?: string }) => {
@@ -284,6 +333,8 @@ const UsersPage: React.FC = () => {
     setIsEditMode(true);
     setIsFormModalOpen(true);
     setEmailError(null); // Clear error when opening for editing
+    setUsernameError(null);
+    setPasswordError(null);
   };
 
   const handleDeleteClick = (user: User & { _id?: string }) => {
@@ -336,8 +387,12 @@ const UsersPage: React.FC = () => {
     setCurrentPage(1);
   };
 
-  const handleRoleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setRoleFilter(e.target.value as "admin" | "user" | "");
+  const handleRoleFilterChange = (
+    e: React.ChangeEvent<HTMLSelectElement> | { target: { value: string } }
+  ) => {
+    // Map "all" from SelectItem back to "" for your roleFilter state/query params
+    const selectedValue = e.target.value;
+    setRoleFilter(selectedValue as "admin" | "user" | "all"); // Update state with "all"
     setCurrentPage(1);
   };
 
@@ -346,7 +401,7 @@ const UsersPage: React.FC = () => {
     try {
       const params: UserQueryParams = {
         search: searchTerm,
-        ...(roleFilter && { role: roleFilter as "admin" | "user" }),
+        ...(roleFilter !== "all" && { role: roleFilter as "admin" | "user" }),
       };
       const blob = await userService.exportUsersToExcel(params);
       const url = window.URL.createObjectURL(new Blob([blob]));
@@ -369,7 +424,7 @@ const UsersPage: React.FC = () => {
     try {
       const params: UserQueryParams = {
         search: searchTerm,
-        ...(roleFilter && { role: roleFilter as "admin" | "user" }),
+        ...(roleFilter !== "all" && { role: roleFilter as "admin" | "user" }),
       };
       const blob = await userService.exportUsersToWord(params);
       const url = window.URL.createObjectURL(new Blob([blob]));
@@ -399,6 +454,22 @@ const UsersPage: React.FC = () => {
     );
   }
 
+  const isFormValid =
+    !emailError &&
+    !usernameError &&
+    !passwordError &&
+    formValues.username.length >= 6 &&
+    formValues.username.length <= 40 &&
+    formValues.email.length > 0 &&
+    formValues.email.length <= 50 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formValues.email) &&
+    ((isEditMode &&
+      formValues.password.length >= 6 &&
+      formValues.password.length <= 40) ||
+      (!isEditMode &&
+        formValues.password.length >= 6 &&
+        formValues.password.length <= 40));
+
   return (
     <div className="container mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Gestión de Usuarios</h1>
@@ -413,18 +484,27 @@ const UsersPage: React.FC = () => {
           onChange={handleSearchChange}
           className="max-w-sm"
         />
-        <select
-          id="roleFilter"
-          value={roleFilter}
-          onChange={handleRoleFilterChange}
-          className="max-w-sm border border-input bg-background text-foreground rounded-md p-2 h-10 ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1"
-        >
-          <option value="">Todos los Roles</option>
-          <option value="user">Usuario</option>
-          <option value="admin">Administrador</option>
-        </select>
 
-        <div className="flex w-full md:w-auto gap-2">
+        {/* MODIFIED: Combined role filter and buttons into a single flex container */}
+        <div className="flex flex-col md:flex-row w-full md:w-auto gap-2">
+          <Select
+            onValueChange={(value) =>
+              handleRoleFilterChange({
+                target: { value },
+              } as React.ChangeEvent<HTMLSelectElement>)
+            }
+            value={roleFilter}
+          >
+            <SelectTrigger className="max-w-sm">
+              <SelectValue placeholder="Todos los Roles" />
+            </SelectTrigger>
+            <SelectContent>
+              {/* MODIFIED: Changed value from "" to "all" */}
+              <SelectItem value="all">Todos los Roles</SelectItem>
+              <SelectItem value="user">Usuario</SelectItem>
+              <SelectItem value="admin">Administrador</SelectItem>
+            </SelectContent>
+          </Select>
           {userRole === "admin" && (
             <Button onClick={handleCreateClick} className="w-full md:w-auto">
               Agregar Usuario
@@ -449,7 +529,7 @@ const UsersPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="mb-2 text-sm text-gray-600">
+      <div className="mb-2 text-sm text-yellow-600">
         Total de usuarios: {totalItems}
       </div>
 
@@ -575,13 +655,19 @@ const UsersPage: React.FC = () => {
                 <Label htmlFor="username" className="text-right">
                   Username
                 </Label>
-                <Input
-                  id="username"
-                  value={formValues.username}
-                  onChange={handleFormChange}
-                  className="col-span-3"
-                  required
-                />
+                <div className="col-span-3 flex flex-col">
+                  <Input
+                    id="username"
+                    value={formValues.username}
+                    onChange={handleFormChange}
+                    required
+                    minLength={6}
+                    maxLength={40}
+                  />
+                  {usernameError && (
+                    <p className="text-red-500 text-sm mt-1">{usernameError}</p>
+                  )}
+                </div>
               </div>
               {/* MODIFIED: Email input and error message contained in a flex column */}
               <div className="grid grid-cols-4 items-start gap-4">
@@ -610,38 +696,50 @@ const UsersPage: React.FC = () => {
                 <Label htmlFor="password" className="text-right">
                   Contraseña
                 </Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={formValues.password}
-                  onChange={handleFormChange}
-                  className="col-span-3"
-                  required={true}
-                />
+                <div className="col-span-3 flex flex-col">
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formValues.password}
+                    onChange={handleFormChange}
+                    required={true}
+                    minLength={6}
+                    maxLength={40}
+                  />
+                  {passwordError && (
+                    <p className="text-red-500 text-sm mt-1">{passwordError}</p>
+                  )}
+                </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="role" className="text-right">
                   Rol
                 </Label>
-                <select
-                  id="role"
+                <Select
+                  onValueChange={(value) =>
+                    handleFormChange({
+                      target: { id: "role", value },
+                    } as React.ChangeEvent<HTMLSelectElement>)
+                  }
                   value={formValues.role}
-                  onChange={handleFormChange}
-                  className="col-span-3 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  required
                   disabled={
                     isEditMode &&
                     (currentUser?.id || currentUser?._id) ===
                       (authenticatedUser?.id || authenticatedUser?._id)
                   }
                 >
-                  <option value="user">Usuario</option>
-                  <option value="admin">Administrador</option>
-                </select>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Selecciona un rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">Usuario</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <DialogFooter>
-              <Button type="submit" disabled={isLoading || !!emailError}>
+              <Button type="submit" disabled={isLoading || !isFormValid}>
                 {isLoading ? "Guardando..." : "Guardar cambios"}
               </Button>
             </DialogFooter>

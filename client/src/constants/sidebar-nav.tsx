@@ -56,7 +56,7 @@ export const links = [
         icon: <ArrowLeftRightIcon className="h-4 w-4" />,
       },
       {
-        title: "Stock de Alimentos", // Otra de las 4 páginas a asegurar
+        title: "Existencias de Alimentos", // Otra de las 4 páginas a asegurar
         href: "/stock",
         icon: <PackageIcon className="h-4 w-4" />,
       },

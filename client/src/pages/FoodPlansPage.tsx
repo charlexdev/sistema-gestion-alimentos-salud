@@ -48,9 +48,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { format, parseISO } from "date-fns";
-import { DownloadIcon, FileTextIcon, PlusIcon, XIcon } from "lucide-react";
+import { format, parseISO, addWeeks, addMonths, addYears } from "date-fns"; // Importar funciones de date-fns
+import {
+  DownloadIcon,
+  FileTextIcon,
+  PlusIcon,
+  XIcon,
+  CalendarIcon,
+} from "lucide-react"; // Import CalendarIcon
 import { useUser } from "@/stores/auth";
+
+// Shadcn UI imports for calendar
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils"; // Import cn utility
 
 // === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
 interface ApiError extends Error {
@@ -73,7 +88,20 @@ const FoodPlansPage: React.FC = () => {
   // Paginación y búsqueda
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalItems, setTotalItems] = useState<number>(0); // Added for consistency
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // --- MODIFICACIÓN: VALOR POR DEFECTO A "all" EN LUGAR DE "" ---
+  const [selectedMedicalCenter, setSelectedMedicalCenter] =
+    useState<string>("all");
+  const [selectedType, setSelectedType] = useState<
+    "weekly" | "monthly" | "annual" | "all"
+  >("all");
+  const [selectedStatus, setSelectedStatus] = useState<
+    "active" | "concluded" | "all"
+  >("all");
+  // ---------------------------------------------------------------
+
   const [limit] = useState<number>(10); // Número de elementos por página
 
   // Diálogo de creación/edición
@@ -88,7 +116,7 @@ const FoodPlansPage: React.FC = () => {
     startDate: "",
     endDate: "",
     plannedFoods: [], // Array de alimentos planificados
-    status: "active", // <--- AÑADE ESTA LÍNEA AQUÍ
+    status: "active",
   });
 
   // Diálogo de confirmación de eliminación
@@ -130,10 +158,23 @@ const FoodPlansPage: React.FC = () => {
       if (searchQuery) {
         params.search = searchQuery;
       }
+      // --- APLICAR FILTROS (MODIFICADO PARA "all") ---
+      if (selectedMedicalCenter !== "all") {
+        params.medicalCenterId = selectedMedicalCenter;
+      }
+      if (selectedType !== "all") {
+        params.type = selectedType;
+      }
+      if (selectedStatus !== "all") {
+        params.status = selectedStatus;
+      }
+      // ------------------------------------------------
+
       const response = await foodPlanService.getFoodPlans(params);
       setFoodPlans(response.data);
       setTotalPages(response.totalPages);
       setCurrentPage(response.currentPage);
+      setTotalItems(response.totalItems); // Set totalItems
     } catch (err) {
       const apiError = err as ApiError;
       console.error("Error al obtener planes de alimentos:", apiError);
@@ -148,21 +189,58 @@ const FoodPlansPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, limit, searchQuery]);
+  }, [
+    currentPage,
+    limit,
+    searchQuery,
+    selectedMedicalCenter, // Dependencia de filtro
+    selectedType, // Dependencia de filtro
+    selectedStatus, // Dependencia de filtro
+  ]);
 
   useEffect(() => {
     fetchDependencies();
+  }, [fetchDependencies]);
+
+  // Use a separate useEffect for fetching food plans based on dependencies
+  useEffect(() => {
     fetchFoodPlans();
-  }, [fetchDependencies, fetchFoodPlans]);
+  }, [
+    fetchFoodPlans,
+    currentPage,
+    searchQuery,
+    selectedMedicalCenter,
+    selectedType,
+    selectedStatus,
+  ]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
 
   const handleSearch = () => {
-    setCurrentPage(1); // Reset a la primera página en cada nueva búsqueda
-    fetchFoodPlans();
+    setCurrentPage(1); // Reset a la primera página en cada nueva búsqueda o filtro
+    // fetchFoodPlans will be called by the useEffect when searchQuery, selectedMedicalCenter, etc. change
   };
+
+  // --- HANDLERS PARA LOS NUEVOS FILTROS (MODIFICADOS PARA "all") ---
+  const handleMedicalCenterFilterChange = (value: string) => {
+    setSelectedMedicalCenter(value);
+    setCurrentPage(1); // Reset page when filter changes
+  };
+
+  const handleTypeFilterChange = (
+    value: "weekly" | "monthly" | "annual" | "all"
+  ) => {
+    setSelectedType(value);
+    setCurrentPage(1); // Reset page when filter changes
+  };
+
+  const handleStatusFilterChange = (value: "active" | "concluded" | "all") => {
+    setSelectedStatus(value);
+    setCurrentPage(1); // Reset page when filter changes
+  };
+  // -----------------------------------------------------------------
 
   const openCreateDialog = () => {
     setCurrentFoodPlan(null);
@@ -173,7 +251,7 @@ const FoodPlansPage: React.FC = () => {
       startDate: "",
       endDate: "",
       plannedFoods: [],
-      status: "active", // <--- AÑADE ESTA LÍNEA AQUÍ
+      status: "active",
     });
     setIsUpsertDialogOpen(true);
   };
@@ -185,7 +263,7 @@ const FoodPlansPage: React.FC = () => {
       medicalCenter:
         typeof plan.medicalCenter === "string"
           ? plan.medicalCenter
-          : plan.medicalCenter._id,
+          : plan.medicalCenter?._id || "", // Ensure it's always a string
       type: plan.type,
       startDate: format(parseISO(plan.startDate as string), "yyyy-MM-dd"), // Asegura formato ISO para input date
       endDate: format(parseISO(plan.endDate as string), "yyyy-MM-dd"), // Asegura formato ISO para input date
@@ -195,16 +273,53 @@ const FoodPlansPage: React.FC = () => {
           typeof pf.provider === "string" ? pf.provider : pf.provider._id,
         quantity: pf.quantity,
       })),
-      status: plan.status, // <--- AÑADE ESTA LÍNEA AQUÍ
+      status: plan.status,
     });
     setIsUpsertDialogOpen(true);
   };
 
+  // Función auxiliar para calcular la fecha de fin
+  const calculateEndDate = (
+    startDate: string,
+    type: "weekly" | "monthly" | "annual"
+  ): string => {
+    if (!startDate) return "";
+    const start = parseISO(startDate);
+    let endDate: Date;
+
+    switch (type) {
+      case "weekly":
+        endDate = addWeeks(start, 1);
+        break;
+      case "monthly":
+        endDate = addMonths(start, 1);
+        break;
+      case "annual":
+        endDate = addYears(start, 1);
+        break;
+      default:
+        return "";
+    }
+    return format(endDate, "yyyy-MM-dd");
+  };
+
+  // Keep handleFormChange for non-date inputs
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { id, value } = e.target;
     setFormValues((prev) => ({ ...prev, [id]: value }));
+  };
+
+  // Modificación adicional para la selección de tipo de plan
+  const handleTypeChange = (value: "weekly" | "monthly" | "annual") => {
+    setFormValues((prev) => {
+      const updatedValues = { ...prev, type: value };
+      if (prev.startDate) {
+        updatedValues.endDate = calculateEndDate(prev.startDate, value);
+      }
+      return updatedValues;
+    });
   };
 
   const handlePlannedFoodChange = (
@@ -217,7 +332,7 @@ const FoodPlansPage: React.FC = () => {
       if (field === "quantity") {
         updatedPlannedFoods[index] = {
           ...updatedPlannedFoods[index],
-          [field]: Number(value),
+          [field]: Number(value), // Convertir a número explícitamente
         };
       } else {
         updatedPlannedFoods[index] = {
@@ -260,9 +375,18 @@ const FoodPlansPage: React.FC = () => {
         !formValues.type ||
         !formValues.startDate ||
         !formValues.endDate ||
-        !formValues.status // <--- AÑADE ESTA VALIDACIÓN
+        !formValues.status
       ) {
         toast.error("Por favor, complete todos los campos obligatorios.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Validar longitud del nombre
+      if (formValues.name.length < 6 || formValues.name.length > 40) {
+        toast.error(
+          "El nombre del plan de alimento debe tener entre 6 y 40 caracteres."
+        );
         setIsLoading(false);
         return;
       }
@@ -275,9 +399,17 @@ const FoodPlansPage: React.FC = () => {
           setIsLoading(false);
           return;
         }
+        // Validar cantidad de alimentos planificados
+        if (pf.quantity < 1 || pf.quantity > 10000000000) {
+          toast.error(
+            `La cantidad para el alimento debe estar entre 1 y 10,000,000,000.`
+          );
+          setIsLoading(false);
+          return;
+        }
       }
 
-      // Convertir fechas a objetos Date
+      // Convertir fechas a objetos Date y luego a ISO string
       const dataToSend: FoodPlanFormValues = {
         ...formValues,
         startDate: new Date(formValues.startDate).toISOString(),
@@ -321,7 +453,16 @@ const FoodPlansPage: React.FC = () => {
       await foodPlanService.deleteFoodPlan(currentFoodPlan._id);
       toast.success("Plan de alimento eliminado exitosamente.");
       setIsConfirmDeleteOpen(false);
-      fetchFoodPlans(); // Recargar la lista
+
+      const updatedTotalItems = totalItems - 1;
+
+      if (foodPlans.length === 1 && currentPage > 1 && updatedTotalItems > 0) {
+        setCurrentPage(currentPage - 1);
+      } else if (updatedTotalItems === 0) {
+        setCurrentPage(1);
+      } else {
+        fetchFoodPlans();
+      }
     } catch (err) {
       const apiError = err as ApiError;
       console.error("Error al eliminar plan de alimento:", apiError);
@@ -341,10 +482,25 @@ const FoodPlansPage: React.FC = () => {
   const handleExportExcel = async () => {
     try {
       setIsLoading(true);
-      const params: FoodPlanQueryParams = {};
+      const params: FoodPlanQueryParams = {
+        page: 1, // Export all pages
+        limit: totalItems > 0 ? totalItems : 10000, // Fetch all if totalItems is known, else a large number
+      };
       if (searchQuery) {
         params.search = searchQuery;
       }
+      // --- APLICAR FILTROS (MODIFICADO PARA "all") ---
+      if (selectedMedicalCenter !== "all") {
+        params.medicalCenterId = selectedMedicalCenter;
+      }
+      if (selectedType !== "all") {
+        params.type = selectedType;
+      }
+      if (selectedStatus !== "all") {
+        params.status = selectedStatus;
+      }
+      // ------------------------------------------------
+
       const data = await foodPlanService.exportFoodPlansToExcel(params);
       const url = window.URL.createObjectURL(new Blob([data]));
       const link = document.createElement("a");
@@ -369,10 +525,25 @@ const FoodPlansPage: React.FC = () => {
   const handleExportWord = async () => {
     try {
       setIsLoading(true);
-      const params: FoodPlanQueryParams = {};
+      const params: FoodPlanQueryParams = {
+        page: 1, // Export all pages
+        limit: totalItems > 0 ? totalItems : 10000, // Fetch all if totalItems is known, else a large number
+      };
       if (searchQuery) {
         params.search = searchQuery;
       }
+      // --- APLICAR FILTROS (MODIFICADO PARA "all") ---
+      if (selectedMedicalCenter !== "all") {
+        params.medicalCenterId = selectedMedicalCenter;
+      }
+      if (selectedType !== "all") {
+        params.type = selectedType;
+      }
+      if (selectedStatus !== "all") {
+        params.status = selectedStatus;
+      }
+      // ------------------------------------------------
+
       const data = await foodPlanService.exportFoodPlansToWord(params);
       const url = window.URL.createObjectURL(new Blob([data]));
       const link = document.createElement("a");
@@ -395,51 +566,112 @@ const FoodPlansPage: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6 text-gray-800">
+    <div className="container mx-auto py-10">
+      <h2 className="text-3xl font-bold tracking-tight mb-8">
         Gestión de Planes de Alimentos
-      </h1>
+      </h2>
 
       {error && <div className="text-red-500 mb-4">{error}</div>}
 
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex items-center justify-between mb-6">
+        <Input
+          type="text"
+          placeholder="Buscar por nombre..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="max-w-sm"
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              handleSearch();
+            }
+          }}
+        />
         <div className="flex space-x-2">
-          <Input
-            type="text"
-            placeholder="Buscar por nombre o centro médico..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-80"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleSearch();
-              }
-            }}
-          />
-          <Button onClick={handleSearch}>Buscar</Button>
-        </div>
-        <div className="flex space-x-2">
-          <Button onClick={handleExportExcel} disabled={isLoading}>
-            <DownloadIcon className="mr-2 h-4 w-4" /> Exportar Excel
-          </Button>
-          <Button onClick={handleExportWord} disabled={isLoading}>
-            <FileTextIcon className="mr-2 h-4 w-4" /> Exportar Word
-          </Button>
           {isAdmin && (
             <Button onClick={openCreateDialog}>Crear Plan de Alimento</Button>
           )}
+          <Button
+            variant="excel"
+            onClick={handleExportExcel}
+            disabled={isLoading}
+          >
+            <DownloadIcon className="mr-2 h-4 w-4" /> Excel
+          </Button>
+          <Button
+            variant="word"
+            onClick={handleExportWord}
+            disabled={isLoading}
+          >
+            <FileTextIcon className="mr-2 h-4 w-4" /> Word
+          </Button>
         </div>
       </div>
+
+      {/* --- SELECTORES DE FILTRO (MODIFICADOS) --- */}
+      <div className="flex items-center space-x-4 mb-6">
+        <Select
+          value={selectedMedicalCenter}
+          onValueChange={handleMedicalCenterFilterChange}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filtrar por Centro Médico" />
+          </SelectTrigger>
+          <SelectContent>
+            {/* CAMBIO AQUI: value="all" en lugar de value="" */}
+            <SelectItem value="all">Todos los Centros</SelectItem>
+            {medicalCenters.map((center) => (
+              <SelectItem key={center._id} value={center._id}>
+                {center.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={selectedType} onValueChange={handleTypeFilterChange}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filtrar por Tipo de Plan" />
+          </SelectTrigger>
+          <SelectContent>
+            {/* CAMBIO AQUI: value="all" en lugar de value="" */}
+            <SelectItem value="all">Todos los Tipos</SelectItem>
+            <SelectItem value="weekly">Semanal</SelectItem>
+            <SelectItem value="monthly">Mensual</SelectItem>
+            <SelectItem value="annual">Anual</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={selectedStatus} onValueChange={handleStatusFilterChange}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filtrar por Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            {/* CAMBIO AQUI: value="all" en lugar de value="" */}
+            <SelectItem value="all">Todos los Estados</SelectItem>
+            <SelectItem value="active">Activo</SelectItem>
+            <SelectItem value="concluded">Concluido</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {/* ------------------------------------------- */}
+
+      <p className="mb-2 text-sm text-yellow-600">
+        Total de planes de alimentos: {totalItems}
+      </p>
 
       <div className="rounded-md border overflow-hidden shadow-sm">
         <Table>
           <TableHeader>
-            <TableRow className="bg-gray-100">
+            {/* Fix hydration error: Ensure no whitespace between TableRow and its first TableHead */}
+            <TableRow>
               <TableHead className="w-[180px]">Nombre</TableHead>
               <TableHead className="w-[180px]">Centro Médico</TableHead>
               <TableHead className="w-[100px]">Tipo</TableHead>
               <TableHead className="w-[120px]">Fecha Inicio</TableHead>
               <TableHead className="w-[120px]">Fecha Fin</TableHead>
+              {/* Nuevo: Columna para Alimentos Planificados */}
+              <TableHead className="w-[250px]">
+                Alimentos Planificados
+              </TableHead>
               <TableHead className="w-[100px]">Estado</TableHead>
               <TableHead className="w-[100px] text-right">
                 Cant. Plan.
@@ -448,39 +680,84 @@ const FoodPlansPage: React.FC = () => {
               <TableHead className="w-[100px] text-right">
                 % Completado
               </TableHead>
-              <TableHead className="w-[150px] text-right">Acciones</TableHead>
+              {isAdmin && ( // Only show actions column if admin
+                <TableHead className="w-[150px] text-right">Acciones</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8">
+                <TableCell
+                  colSpan={isAdmin ? 11 : 10} /* Adjusted colspan */
+                  className="text-center py-8"
+                >
                   Cargando planes de alimentos...
                 </TableCell>
               </TableRow>
             ) : foodPlans.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} className="text-center py-8">
+                <TableCell
+                  colSpan={isAdmin ? 11 : 10} /* Adjusted colspan */
+                  className="text-center py-8"
+                >
                   No se encontraron planes de alimentos.
                 </TableCell>
               </TableRow>
             ) : (
               foodPlans.map((plan) => (
+                // Fix hydration error: Ensure no whitespace between TableRow and its first TableCell
                 <TableRow key={plan._id}>
                   <TableCell className="font-medium">{plan.name}</TableCell>
                   <TableCell>
                     {typeof plan.medicalCenter === "string"
-                      ? plan.medicalCenter // Should not happen if populated
+                      ? medicalCenters.find(
+                          (mc) => mc._id === plan.medicalCenter
+                        )?.name || "N/A"
                       : plan.medicalCenter?.name || "N/A"}
                   </TableCell>
-                  <TableCell>{plan.type}</TableCell>
+                  {/* Modificación para mostrar el tipo de plan en español */}
+                  <TableCell>
+                    {plan.type === "weekly"
+                      ? "Semanal"
+                      : plan.type === "monthly"
+                      ? "Mensual"
+                      : plan.type === "annual"
+                      ? "Anual"
+                      : plan.type}
+                  </TableCell>
                   <TableCell>
                     {format(parseISO(plan.startDate as string), "dd/MM/yyyy")}
                   </TableCell>
                   <TableCell>
                     {format(parseISO(plan.endDate as string), "dd/MM/yyyy")}
                   </TableCell>
-                  <TableCell>{plan.status}</TableCell>
+                  {/* Nuevo: Celda para Alimentos Planificados */}
+                  <TableCell>
+                    {plan.plannedFoods.length > 0 ? (
+                      <ul className="list-disc list-inside text-sm">
+                        {plan.plannedFoods.map((pf, pfIndex) => (
+                          <li key={pfIndex}>
+                            {typeof pf.food === "string"
+                              ? foods.find((f) => f._id === pf.food)?.name ||
+                                "N/A"
+                              : pf.food?.name || "N/A"}{" "}
+                            ({pf.quantity})
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      "Ninguno"
+                    )}
+                  </TableCell>
+                  {/* Modificación para mostrar el estado en español */}
+                  <TableCell>
+                    {plan.status === "active"
+                      ? "Activo"
+                      : plan.status === "concluded"
+                      ? "Concluido"
+                      : plan.status}
+                  </TableCell>
                   <TableCell className="text-right">
                     {plan.totalPlannedQuantity}
                   </TableCell>
@@ -490,27 +767,25 @@ const FoodPlansPage: React.FC = () => {
                   <TableCell className="text-right">
                     {plan.percentageCompleted}%
                   </TableCell>
-                  <TableCell className="text-right">
-                    {isAdmin && (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => openEditDialog(plan)}
-                          className="mr-2"
-                        >
-                          Editar
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteClick(plan)}
-                        >
-                          Eliminar
-                        </Button>
-                      </>
-                    )}
-                  </TableCell>
+                  {isAdmin && (
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditDialog(plan)}
+                        className="mr-2"
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteClick(plan)}
+                      >
+                        Eliminar
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
@@ -518,13 +793,15 @@ const FoodPlansPage: React.FC = () => {
         </Table>
       </div>
 
-      <Pagination className="mt-6">
+      <Pagination className="mt-8">
         <PaginationContent>
           <PaginationItem>
             <PaginationPrevious
               href="#"
               onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-              isActive={currentPage > 1}
+              className={
+                currentPage === 1 ? "pointer-events-none opacity-50" : undefined
+              }
             />
           </PaginationItem>
           {Array.from({ length: totalPages }, (_, i) => (
@@ -544,13 +821,18 @@ const FoodPlansPage: React.FC = () => {
               onClick={() =>
                 handlePageChange(Math.min(totalPages, currentPage + 1))
               }
-              isActive={currentPage < totalPages}
+              className={
+                currentPage === totalPages
+                  ? "pointer-events-none opacity-50"
+                  : undefined
+              }
             />
           </PaginationItem>
         </PaginationContent>
       </Pagination>
 
       <Dialog open={isUpsertDialogOpen} onOpenChange={setIsUpsertDialogOpen}>
+        {/* CAMBIO AQUI: Aumentado el sm:max-w para dar más espacio horizontal */}
         <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -562,126 +844,182 @@ const FoodPlansPage: React.FC = () => {
                 : "Añade un nuevo plan de alimento a la base de datos."}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleUpsertSubmit} className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
-                Nombre
-              </Label>
-              <Input
-                id="name"
-                value={formValues.name}
-                onChange={handleFormChange}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="medicalCenter" className="text-right">
-                Centro Médico
-              </Label>
-              <Select
-                value={formValues.medicalCenter}
-                onValueChange={(value) =>
-                  setFormValues((prev) => ({ ...prev, medicalCenter: value }))
-                }
-                required
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Selecciona un centro médico" />
-                </SelectTrigger>
-                <SelectContent>
-                  {medicalCenters.map((center) => (
-                    <SelectItem key={center._id} value={center._id}>
-                      {center.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="type" className="text-right">
-                Tipo de Plan
-              </Label>
-              <Select
-                value={formValues.type}
-                onValueChange={(value) =>
-                  setFormValues((prev) => ({
-                    ...prev,
-                    type: value as "weekly" | "monthly" | "annual",
-                  }))
-                }
-                required
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Selecciona un tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="weekly">Semanal</SelectItem>
-                  <SelectItem value="monthly">Mensual</SelectItem>
-                  <SelectItem value="annual">Anual</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="startDate" className="text-right">
-                Fecha Inicio
-              </Label>
-              <Input
-                id="startDate"
-                type="date"
-                value={formValues.startDate}
-                onChange={handleFormChange}
-                className="col-span-3"
-                required
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="endDate" className="text-right">
-                Fecha Fin
-              </Label>
-              <Input
-                id="endDate"
-                type="date"
-                value={formValues.endDate}
-                onChange={handleFormChange}
-                className="col-span-3"
-                required
-              />
-            </div>
-            {/* Nuevo campo para el estado */}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="status" className="text-right">
-                Estado
-              </Label>
-              <Select
-                value={formValues.status}
-                onValueChange={(value) =>
-                  setFormValues((prev) => ({
-                    ...prev,
-                    status: value as "active" | "concluded",
-                  }))
-                }
-                required
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Selecciona el estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Activo</SelectItem>
-                  <SelectItem value="concluded">Concluido</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <form
+            onSubmit={handleUpsertSubmit}
+            className="grid grid-cols-[auto_1fr] items-center gap-4 py-4"
+          >
+            <Label htmlFor="name" className="text-right">
+              Nombre
+            </Label>
+            <Input
+              id="name"
+              value={formValues.name}
+              onChange={handleFormChange}
+              required
+            />
+            <Label htmlFor="medicalCenter" className="text-right">
+              Centro Médico
+            </Label>
+            <Select
+              value={formValues.medicalCenter}
+              onValueChange={(value) =>
+                setFormValues((prev) => ({ ...prev, medicalCenter: value }))
+              }
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona un centro médico" />
+              </SelectTrigger>
+              <SelectContent>
+                {medicalCenters.map((center) => (
+                  <SelectItem key={center._id} value={center._id}>
+                    {center.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Label htmlFor="type" className="text-right">
+              Tipo de Plan
+            </Label>
+            <Select
+              value={formValues.type}
+              onValueChange={handleTypeChange} // Usar la nueva función aquí
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona un tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="weekly">Semanal</SelectItem>
+                <SelectItem value="monthly">Mensual</SelectItem>
+                <SelectItem value="annual">Anual</SelectItem>
+              </SelectContent>
+            </Select>
 
-            <h3 className="text-lg font-semibold mt-4 col-span-4">
+            {/* Shadcn UI Calendar for Start Date */}
+            <Label htmlFor="startDate" className="text-right">
+              Fecha Inicio
+            </Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !formValues.startDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {formValues.startDate ? (
+                    format(parseISO(formValues.startDate), "PPP")
+                  ) : (
+                    <span>Selecciona una fecha</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={
+                    formValues.startDate
+                      ? parseISO(formValues.startDate)
+                      : undefined
+                  }
+                  onSelect={(date) => {
+                    setFormValues((prev) => {
+                      const updatedValues = {
+                        ...prev,
+                        startDate: date ? format(date, "yyyy-MM-dd") : "",
+                      };
+                      // Recalculate endDate if startDate or type changes
+                      if (date && prev.type) {
+                        updatedValues.endDate = calculateEndDate(
+                          format(date, "yyyy-MM-dd"),
+                          prev.type
+                        );
+                      }
+                      return updatedValues;
+                    });
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+
+            {/* Shadcn UI Calendar for End Date */}
+            <Label htmlFor="endDate" className="text-right">
+              Fecha Fin
+            </Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !formValues.endDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {formValues.endDate ? (
+                    format(parseISO(formValues.endDate), "PPP")
+                  ) : (
+                    <span>Selecciona una fecha</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={
+                    formValues.endDate
+                      ? parseISO(formValues.endDate)
+                      : undefined
+                  }
+                  onSelect={(date) =>
+                    setFormValues((prev) => ({
+                      ...prev,
+                      endDate: date ? format(date, "yyyy-MM-dd") : "",
+                    }))
+                  }
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+
+            <Label htmlFor="status" className="text-right">
+              Estado
+            </Label>
+            <Select
+              value={formValues.status}
+              onValueChange={(value) =>
+                setFormValues((prev) => ({
+                  ...prev,
+                  status: value as "active" | "concluded",
+                }))
+              }
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona el estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Activo</SelectItem>
+                <SelectItem value="concluded">Concluido</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <h3 className="text-lg font-semibold mt-4 col-span-2">
               Alimentos Planificados
             </h3>
             {formValues.plannedFoods.map((pf, index) => (
               <div
                 key={index}
-                className="grid grid-cols-10 items-center gap-2 border p-3 rounded-md relative"
+                // Ajuste de columnas para dar más espacio a la cantidad
+                className="grid grid-cols-12 items-center gap-4 border p-3 rounded-md relative col-span-2"
               >
                 <div className="col-span-4">
+                  {" "}
+                  {/* Reducido de 5 a 4 */}
                   <Label htmlFor={`food-${index}`} className="sr-only">
                     Alimento
                   </Label>
@@ -705,6 +1043,8 @@ const FoodPlansPage: React.FC = () => {
                   </Select>
                 </div>
                 <div className="col-span-4">
+                  {" "}
+                  {/* Reducido de 5 a 4 */}
                   <Label htmlFor={`provider-${index}`} className="sr-only">
                     Proveedor
                   </Label>
@@ -727,7 +1067,9 @@ const FoodPlansPage: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="col-span-1">
+                <div className="col-span-2">
+                  {" "}
+                  {/* Aumentado de 1 a 2 para más espacio */}
                   <Label htmlFor={`quantity-${index}`} className="sr-only">
                     Cantidad
                   </Label>
@@ -742,7 +1084,9 @@ const FoodPlansPage: React.FC = () => {
                     required
                   />
                 </div>
-                <div className="col-span-1 flex justify-end">
+                <div className="col-span-2 flex justify-end">
+                  {" "}
+                  {/* Ajustado de 1 a 2 para sumar 12 columnas en total */}
                   <Button
                     type="button"
                     variant="ghost"
@@ -757,13 +1101,13 @@ const FoodPlansPage: React.FC = () => {
             <Button
               type="button"
               onClick={addPlannedFood}
-              className="mt-2 w-full"
+              className="mt-2 w-full col-span-2"
               variant="outline"
             >
               <PlusIcon className="mr-2 h-4 w-4" /> Añadir Alimento Planificado
             </Button>
 
-            <DialogFooter className="mt-6">
+            <DialogFooter className="mt-6 col-span-2">
               <Button type="submit" disabled={isLoading}>
                 {isLoading ? "Guardando..." : "Guardar cambios"}
               </Button>

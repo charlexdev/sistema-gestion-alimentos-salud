@@ -68,9 +68,12 @@ export const createFoodPlan = async (
   res: Response
 ): Promise<void> => {
   try {
+    // Añade esta línea para depurar lo que el servidor recibe
+    console.log("Request Body recibido en createFoodPlan:", req.body);
+
     const {
       name,
-      medicalCenterId,
+      medicalCenter, // CAMBIO: Aquí se corrige de 'medicalCenterId' a 'medicalCenter'
       type,
       startDate,
       endDate,
@@ -81,12 +84,22 @@ export const createFoodPlan = async (
 
     if (
       !name ||
-      !medicalCenterId ||
+      !medicalCenter || // CAMBIO: Usar 'medicalCenter'
       !type ||
       !startDate ||
       !endDate ||
       !plannedFoods
     ) {
+      // Esta línea nos dirá qué campo específico es el que está "falsey"
+      console.log(
+        `Falla de validación inicial: 
+        name: ${!!name}, 
+        medicalCenter: ${!!medicalCenter}, // CAMBIO: Usar 'medicalCenter'
+        type: ${!!type}, 
+        startDate: ${!!startDate}, 
+        endDate: ${!!endDate}, 
+        plannedFoods: ${!!plannedFoods}`
+      );
       res.status(400).json({
         message:
           "Todos los campos obligatorios (nombre, centro médico, tipo, fechas, alimentos planificados) son necesarios.",
@@ -94,11 +107,12 @@ export const createFoodPlan = async (
       return;
     }
 
-    if (!isValidObjectId(medicalCenterId)) {
+    if (!isValidObjectId(medicalCenter)) {
+      // CAMBIO: Usar 'medicalCenter'
       res.status(400).json({ message: "ID de centro médico no válido." });
       return;
     }
-    const existingMedicalCenter = await MedicalCenter.findById(medicalCenterId);
+    const existingMedicalCenter = await MedicalCenter.findById(medicalCenter); // CAMBIO: Usar 'medicalCenter'
     if (!existingMedicalCenter) {
       res
         .status(404)
@@ -164,7 +178,7 @@ export const createFoodPlan = async (
 
     const newFoodPlan = new FoodPlan({
       name,
-      medicalCenter: medicalCenterId,
+      medicalCenter: medicalCenter, // CAMBIO: Usar 'medicalCenter'
       type,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
@@ -441,12 +455,9 @@ export const updateFoodPlan = async (
         !Array.isArray(weeklyPlans) ||
         weeklyPlans.some((id) => !isValidObjectId(id))
       ) {
-        res
-          .status(400)
-          .json({
-            message:
-              "'weeklyPlans' debe ser un array de IDs de planes válidos.",
-          });
+        res.status(400).json({
+          message: "'weeklyPlans' debe ser un array de IDs de planes válidos.",
+        });
         return;
       }
       for (const planId of weeklyPlans) {
@@ -464,12 +475,9 @@ export const updateFoodPlan = async (
         !Array.isArray(monthlyPlans) ||
         monthlyPlans.some((id) => !isValidObjectId(id))
       ) {
-        res
-          .status(400)
-          .json({
-            message:
-              "'monthlyPlans' debe ser un array de IDs de planes válidos.",
-          });
+        res.status(400).json({
+          message: "'monthlyPlans' debe ser un array de IDs de planes válidos.",
+        });
         return;
       }
       for (const planId of monthlyPlans) {
@@ -630,12 +638,9 @@ export const getFoodPlanRealVsPlanned = async (
       "Error al obtener real vs planificado del plan de alimentos:",
       error.message
     );
-    res
-      .status(500)
-      .json({
-        message:
-          "Error interno del servidor al obtener el real vs planificado.",
-      });
+    res.status(500).json({
+      message: "Error interno del servidor al obtener el real vs planificado.",
+    });
   }
 };
 

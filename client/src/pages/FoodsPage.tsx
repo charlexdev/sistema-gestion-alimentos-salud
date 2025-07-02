@@ -38,6 +38,15 @@ import { DownloadIcon, FileTextIcon } from "lucide-react";
 // Import useUser hook from auth store
 import { useUser } from "@/stores/auth";
 
+// Import Select components from shadcn/ui
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 // === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
 interface ApiError {
   message: string;
@@ -101,7 +110,7 @@ const FoodsPage: React.FC = () => {
   const [totalItems, setTotalItems] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedUnitOfMeasurementId, setSelectedUnitOfMeasurementId] =
-    useState<string>(""); // Nuevo estado para la unidad de medida seleccionada
+    useState<string>("all"); // Cambiado el valor inicial a "all" para el filtro
 
   // Modales
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -150,8 +159,11 @@ const FoodsPage: React.FC = () => {
         search: searchTerm,
       };
 
-      // Incluir la unidad de medida seleccionada si existe
-      if (selectedUnitOfMeasurementId) {
+      // Incluir la unidad de medida seleccionada si existe y no es "all"
+      if (
+        selectedUnitOfMeasurementId &&
+        selectedUnitOfMeasurementId !== "all"
+      ) {
         params.unitOfMeasurementId = selectedUnitOfMeasurementId;
       }
 
@@ -190,16 +202,36 @@ const FoodsPage: React.FC = () => {
   }, [fetchFoods, fetchUnitsOfMeasurement]);
 
   const handleFormChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { id, value } = e.target;
     setFormValues((prev) => ({ ...prev, [id]: value }));
   };
 
+  // Handler for select changes in the form. Value for select is passed directly.
+  const handleSelectFormChange = (id: string, value: string) => {
+    setFormValues((prev) => ({ ...prev, [id]: value }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validations
+    if (formValues.name.length < 2 || formValues.name.length > 40) {
+      toast.error("El nombre debe tener entre 2 y 40 caracteres.");
+      return;
+    }
+
+    if (
+      formValues.description &&
+      (formValues.description.length < 6 || formValues.description.length > 40)
+    ) {
+      toast.error(
+        "La descripción debe tener entre 6 y 40 caracteres o estar vacía."
+      );
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -291,10 +323,8 @@ const FoodsPage: React.FC = () => {
   };
 
   // Nuevo manejador para el cambio de unidad de medida
-  const handleUnitOfMeasurementChange = (
-    e: React.ChangeEvent<HTMLSelectElement>
-  ) => {
-    setSelectedUnitOfMeasurementId(e.target.value);
+  const handleUnitOfMeasurementChange = (value: string) => {
+    setSelectedUnitOfMeasurementId(value);
     setCurrentPage(1); // Reiniciar a la primera página al cambiar el filtro
   };
 
@@ -304,7 +334,10 @@ const FoodsPage: React.FC = () => {
       const params: FoodQueryParams = {
         search: searchTerm,
       };
-      if (selectedUnitOfMeasurementId) {
+      if (
+        selectedUnitOfMeasurementId &&
+        selectedUnitOfMeasurementId !== "all"
+      ) {
         // Incluir la unidad de medida en la exportación
         params.unitOfMeasurementId = selectedUnitOfMeasurementId;
       }
@@ -322,7 +355,7 @@ const FoodsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, selectedUnitOfMeasurementId, handleAxiosError]); // Añadir selectedUnitOfMeasurementId como dependencia
+  }, [searchTerm, selectedUnitOfMeasurementId, handleAxiosError]);
 
   const handleExportToWord = useCallback(async () => {
     setIsLoading(true);
@@ -330,7 +363,10 @@ const FoodsPage: React.FC = () => {
       const params: FoodQueryParams = {
         search: searchTerm,
       };
-      if (selectedUnitOfMeasurementId) {
+      if (
+        selectedUnitOfMeasurementId &&
+        selectedUnitOfMeasurementId !== "all"
+      ) {
         // Incluir la unidad de medida en la exportación
         params.unitOfMeasurementId = selectedUnitOfMeasurementId;
       }
@@ -348,7 +384,7 @@ const FoodsPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [searchTerm, selectedUnitOfMeasurementId, handleAxiosError]); // Añadir selectedUnitOfMeasurementId como dependencia
+  }, [searchTerm, selectedUnitOfMeasurementId, handleAxiosError]);
 
   if (isLoading && foods.length === 0) {
     return <div className="text-center py-4">Cargando alimentos...</div>;
@@ -368,21 +404,28 @@ const FoodsPage: React.FC = () => {
           onChange={handleSearchChange}
           className="max-w-sm"
         />
-        {/* Nuevo select para filtrar por unidad de medida */}
-        <select
-          value={selectedUnitOfMeasurementId}
-          onChange={handleUnitOfMeasurementChange}
-          className="h-10 w-full md:max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <option value="">Todas las Unidades</option>
-          {unitsOfMeasurement.map((unit) => (
-            <option key={unit._id} value={unit._id}>
-              {unit.name} ({unit.symbol})
-            </option>
-          ))}
-        </select>
 
-        <div className="flex w-full md:w-auto gap-2">
+        {/* Combined div for Unit of Measurement Selector and Buttons */}
+        <div className="flex w-full md:w-auto gap-2 items-center">
+          {/* Replaced native select with shadcn/ui Select component */}
+          <Select
+            onValueChange={handleUnitOfMeasurementChange}
+            value={selectedUnitOfMeasurementId}
+          >
+            <SelectTrigger className="h-10 w-full md:max-w-[180px]">
+              <SelectValue placeholder="Todas las Unidades" />
+            </SelectTrigger>
+            <SelectContent>
+              {/* Changed value from "" to "all" */}
+              <SelectItem value="all">Todas las Unidades</SelectItem>
+              {unitsOfMeasurement.map((unit) => (
+                <SelectItem key={unit._id} value={unit._id}>
+                  {unit.name} ({unit.symbol})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
           {isAdmin && (
             <Button onClick={handleCreateClick} className="w-full md:w-auto">
               Agregar Alimento
@@ -407,7 +450,7 @@ const FoodsPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="mb-2 text-sm text-gray-600">
+      <div className="mb-2 text-sm text-yellow-600">
         Total de alimentos: {totalItems}
       </div>
 
@@ -538,20 +581,26 @@ const FoodsPage: React.FC = () => {
                 <Label htmlFor="unitOfMeasurementId" className="text-right">
                   Unidad de Medida
                 </Label>
-                <select
-                  id="unitOfMeasurementId"
+                {/* Updated onValueChange for form select */}
+                <Select
+                  onValueChange={(value) =>
+                    handleSelectFormChange("unitOfMeasurementId", value)
+                  }
                   value={formValues.unitOfMeasurementId}
-                  onChange={handleFormChange}
-                  className="col-span-3 h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                  required
                 >
-                  <option value="">Seleccione una unidad</option>
-                  {unitsOfMeasurement.map((unit) => (
-                    <option key={unit._id} value={unit._id}>
-                      {unit.name} ({unit.symbol})
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger className="col-span-3">
+                    <SelectValue placeholder="Seleccione una unidad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* Changed value from "" to a valid string for the form's initial empty state */}
+                    <SelectItem value="none">Seleccione una unidad</SelectItem>
+                    {unitsOfMeasurement.map((unit) => (
+                      <SelectItem key={unit._id} value={unit._id}>
+                        {unit.name} ({unit.symbol})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="description" className="text-right">

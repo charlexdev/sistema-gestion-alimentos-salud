@@ -184,6 +184,17 @@ const MedicalCentersPage: React.FC = () => {
       }
     }
 
+    // Validaciones de longitud para name y address
+    if (formValues.name.length < 6 || formValues.name.length > 40) {
+      toast.error("El nombre debe tener entre 6 y 40 caracteres.");
+      isValid = false;
+    }
+
+    if (formValues.address.length < 6 || formValues.address.length > 40) {
+      toast.error("La dirección debe tener entre 6 y 40 caracteres.");
+      isValid = false;
+    }
+
     if (!isValid) {
       setIsLoading(false); // Stop loading if validation fails
       return;
@@ -365,7 +376,7 @@ const MedicalCentersPage: React.FC = () => {
         </div>
       </div>
 
-      <p className="mb-2 text-sm text-gray-600">
+      <p className="mb-2 text-sm text-yellow-600">
         Total de centros médicos: {totalItems}
       </p>
 
@@ -490,7 +501,7 @@ const MedicalCentersPage: React.FC = () => {
             />
 
             <h4 className="col-span-2 text-left text-sm font-semibold mt-2 mb-1">
-              Información de Contacto
+              Información de Contacto:
             </h4>
 
             <Label htmlFor="email" className="text-right">
@@ -502,7 +513,7 @@ const MedicalCentersPage: React.FC = () => {
               value={formValues.email}
               onChange={handleFormChange}
               maxLength={50}
-              placeholder="ejemplo@dominio.com"
+              placeholder="Correo"
             />
             <Label htmlFor="phoneNumber" className="text-right">
               Teléfono Fijo
@@ -513,7 +524,7 @@ const MedicalCentersPage: React.FC = () => {
               value={formValues.phoneNumber}
               onChange={handleFormChange}
               maxLength={8}
-              placeholder="12345678"
+              placeholder="Teléfono Fijo"
             />
             <Label htmlFor="address" className="text-right">
               Dirección

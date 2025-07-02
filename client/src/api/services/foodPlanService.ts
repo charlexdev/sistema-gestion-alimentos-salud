@@ -1,12 +1,12 @@
 // client/src/api/services/foodPlanService.ts
 
-import api from "@/lib/axios"; // Asume que 'api' es tu instancia de Axios configurada
-import type { IFoodPlan } from "@/types/foodPlan"; // Importamos la interfaz del tipo de frontend
+import api from "@/lib/axios";
+import type { IFoodPlan } from "@/types/foodPlan";
 import type {
   FoodPlanFormValues,
   FoodPlanQueryParams,
   FoodPlanListResponse,
-} from "@/types/foodPlan"; // Importamos las interfaces específicas para el servicio
+} from "@/types/foodPlan";
 
 const FoodPlanService = {
   /**
@@ -17,7 +17,9 @@ const FoodPlanService = {
   getFoodPlans: async (
     params: FoodPlanQueryParams
   ): Promise<FoodPlanListResponse> => {
-    const response = await api.get("/foodplans", { params });
+    // La baseURL en axios.ts ya es 'http://localhost:5000/api',
+    // por lo tanto, aquí solo necesitamos la parte '/foodplans' (plural, sin guion)
+    const response = await api.get("/foodplans", { params }); // <-- ¡CORREGIDO!
     return response.data;
   },
 
@@ -27,24 +29,24 @@ const FoodPlanService = {
    * @returns Promesa que resuelve con el objeto del plan de alimentos.
    */
   getFoodPlanById: async (id: string): Promise<IFoodPlan> => {
-    const response = await api.get(`/foodplans/${id}`);
+    const response = await api.get(`/foodplans/${id}`); // <-- ¡CORREGIDO!
     return response.data;
   },
 
   /**
    * Crea un nuevo plan de alimentos.
-   * @param foodPlanData Los datos del plan de alimentos a crear.
+   * @param foodPlanData Los datos del nuevo plan de alimentos.
    * @returns Promesa que resuelve con el objeto del plan de alimentos creado.
    */
   createFoodPlan: async (
     foodPlanData: FoodPlanFormValues
   ): Promise<IFoodPlan> => {
-    const response = await api.post("/foodplans", foodPlanData);
+    const response = await api.post("/foodplans", foodPlanData); // <-- ¡CORREGIDO!
     return response.data;
   },
 
   /**
-   * Actualiza un plan de alimentos existente por su ID.
+   * Actualiza un plan de alimentos por su ID.
    * @param id El ID del plan de alimentos a actualizar.
    * @param foodPlanData Los datos actualizados del plan de alimentos.
    * @returns Promesa que resuelve con el objeto del plan de alimentos actualizado.
@@ -53,7 +55,7 @@ const FoodPlanService = {
     id: string,
     foodPlanData: FoodPlanFormValues
   ): Promise<IFoodPlan> => {
-    const response = await api.put(`/foodplans/${id}`, foodPlanData);
+    const response = await api.put(`/foodplans/${id}`, foodPlanData); // <-- ¡CORREGIDO!
     return response.data;
   },
 
@@ -63,7 +65,7 @@ const FoodPlanService = {
    * @returns Promesa que resuelve cuando el plan de alimentos ha sido eliminado.
    */
   deleteFoodPlan: async (id: string): Promise<void> => {
-    await api.delete(`/foodplans/${id}`);
+    await api.delete(`/foodplans/${id}`); // <-- ¡CORREGIDO!
   },
 
   /**
@@ -75,6 +77,7 @@ const FoodPlanService = {
     params: FoodPlanQueryParams
   ): Promise<Blob> => {
     const response = await api.get("/foodplans/export/excel", {
+      // <-- ¡CORREGIDO!
       params,
       responseType: "blob", // Importante para la descarga de archivos
     });
@@ -88,6 +91,7 @@ const FoodPlanService = {
    */
   exportFoodPlansToWord: async (params: FoodPlanQueryParams): Promise<Blob> => {
     const response = await api.get("/foodplans/export/word", {
+      // <-- ¡CORREGIDO!
       params,
       responseType: "blob", // Importante para la descarga de archivos
     });

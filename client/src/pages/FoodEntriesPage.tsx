@@ -4,18 +4,17 @@ import type {
   IFoodEntry,
   FoodEntryFormValues,
   FoodEntryQueryParams,
-  // IEnteredFood, // No es necesario importarla directamente si solo se usa dentro de IFoodEntry o FoodEntryFormValues
+  IEnteredFood, // Import IEnteredFood type
 } from "../types/foodEntry";
-import type { IMedicalCenter } from "../types/medicalCenter"; // Assuming this type exists
-import type { IProvider } from "../types/provider"; // Assuming this type exists
-import type { IFood } from "../types/food"; // Assuming this type exists
-import type { IFoodPlan } from "../types/foodPlan"; // Assuming this type exists
+import type { IMedicalCenter } from "../types/medicalCenter";
+import type { IProvider } from "../types/provider";
+import type { IFood } from "../types/food";
+import type { IFoodPlan } from "../types/foodPlan";
 import foodEntryService from "../api/services/foodEntryService";
-// Assuming these services exist based on related files (FoodPlansPage.tsx, FoodsPage.tsx)
-import medicalCenterService from "../api/services/medicalCenterService"; // Assuming this service exists
-import providerService from "../api/services/provider"; // Assuming this service exists
-import foodService from "../api/services/food"; // Assuming this service exists
-import foodPlanService from "../api/services/foodPlanService"; // Assuming this service exists
+import medicalCenterService from "../api/services/medicalCenterService";
+import providerService from "../api/services/provider";
+import foodService from "../api/services/food";
+import foodPlanService from "../api/services/foodPlanService";
 
 import { toast } from "sonner";
 import {
@@ -52,19 +51,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+// Removed Form, FormControl, FormField, FormItem, FormLabel, FormMessage, useForm, useFieldArray, zodResolver, z
+import { format, parseISO } from "date-fns"; // Import parseISO
 import {
-  Form, // <-- Asegúrate de que este componente sea importado y usado
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { useForm, useFieldArray } from "react-hook-form"; // Controller no es necesario importarlo directamente si usas FormField
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { format } from "date-fns";
-import { Calendar as CalendarIcon, PlusIcon, Trash2 } from "lucide-react";
+  Calendar as CalendarIcon,
+  PlusIcon,
+  XIcon, // Changed Trash2 to XIcon for consistency with FoodPlansPage
+  DownloadIcon,
+  FileTextIcon,
+} from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -73,29 +68,10 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
-// Esquema de validación para FoodEntryFormValues con Zod
-const enteredFoodSchema = z.object({
-  food: z.string().min(1, "El alimento es requerido."),
-  quantity: z
-    .number()
-    .min(0.01, "La cantidad debe ser mayor que cero.")
-    .max(10000000000, "La cantidad es demasiado grande."),
-});
+// === IMPORTACIÓN: useUser hook desde auth store ===
+import { useUser } from "@/stores/auth";
 
-const formSchema = z.object({
-  medicalCenter: z.string().min(1, "El centro médico es requerido."),
-  provider: z.string().min(1, "El proveedor es requerido."),
-  foodPlan: z.string().min(1, "El plan de alimentos es requerido."),
-  entryDate: z.string().min(1, "La fecha de entrada es requerida."),
-  enteredFoods: z
-    .array(enteredFoodSchema)
-    .min(1, "Debe añadir al menos un alimento."),
-});
-
-type FormData = z.infer<typeof formSchema>;
-
-// === DEFINICIÓN LOCAL DE TIPO PARA ERRORES DE AXIOS CON RESPUESTA ===
-interface ApiError {
+interface ApiError extends Error {
   response?: {
     data?: {
       message?: string;
@@ -119,23 +95,27 @@ const FoodEntriesPage: React.FC = () => {
   );
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [totalItems, setTotalItems] = useState<number>(0);
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      medicalCenter: "",
-      provider: "",
-      foodPlan: "",
-      entryDate: format(new Date(), "yyyy-MM-dd"), // Valor por defecto
-      enteredFoods: [{ food: "", quantity: 0 }],
-    },
+  // Nuevas variables de estado para los filtros
+  const [filterMedicalCenterId, setFilterMedicalCenterId] =
+    useState<string>("all"); // Default to "all"
+  const [filterProviderId, setFilterProviderId] = useState<string>("all"); // Default to "all"
+  const [filterFoodPlanId, setFilterFoodPlanId] = useState<string>("all"); // Default to "all"
+  const [filterFoodId, setFilterFoodId] = useState<string>("all"); // Default to "all"
+
+  // State for the form values, mirroring FoodPlansPage's formValues
+  const [formValues, setFormValues] = useState<FoodEntryFormValues>({
+    medicalCenter: "",
+    provider: "",
+    foodPlan: "",
+    entryDate: format(new Date(), "yyyy-MM-dd"),
+    enteredFoods: [{ food: "", quantity: 0 }],
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "enteredFoods",
-  });
+  // === OBTENER EL USUARIO Y SU ROL DESDE EL HOOK useUser ===
+  const user = useUser();
+  const isAdmin = user?.role === "admin";
 
   const fetchFoodEntries = useCallback(async () => {
     setIsLoading(true);
@@ -143,18 +123,39 @@ const FoodEntriesPage: React.FC = () => {
       const params: FoodEntryQueryParams = {
         page: currentPage,
         limit: 10,
-        search: searchQuery,
       };
+
+      // Apply filters, adjusted for "all"
+      if (filterMedicalCenterId !== "all") {
+        params.medicalCenterId = filterMedicalCenterId;
+      }
+      if (filterProviderId !== "all") {
+        params.providerId = filterProviderId;
+      }
+      if (filterFoodPlanId !== "all") {
+        params.foodPlanId = filterFoodPlanId;
+      }
+      if (filterFoodId !== "all") {
+        params.foodId = filterFoodId;
+      }
+
       const response = await foodEntryService.getFoodEntries(params);
       setFoodEntries(response.data);
       setTotalPages(response.totalPages);
+      setTotalItems(response.totalItems);
     } catch (error) {
       console.error("Error fetching food entries:", error);
       toast.error("Error al cargar las entradas de alimentos.");
     } finally {
       setIsLoading(false);
     }
-  }, [currentPage, searchQuery]);
+  }, [
+    currentPage,
+    filterMedicalCenterId,
+    filterProviderId,
+    filterFoodPlanId,
+    filterFoodId,
+  ]);
 
   const fetchDependencies = useCallback(async () => {
     try {
@@ -187,14 +188,29 @@ const FoodEntriesPage: React.FC = () => {
     setCurrentPage(page);
   };
 
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-    setCurrentPage(1); // Reset to first page on new search
+  const handleMedicalCenterFilterChange = (value: string) => {
+    setFilterMedicalCenterId(value);
+    setCurrentPage(1);
+  };
+
+  const handleProviderFilterChange = (value: string) => {
+    setFilterProviderId(value);
+    setCurrentPage(1);
+  };
+
+  const handleFoodPlanFilterChange = (value: string) => {
+    setFilterFoodPlanId(value);
+    setCurrentPage(1);
+  };
+
+  const handleFoodFilterChange = (value: string) => {
+    setFilterFoodId(value);
+    setCurrentPage(1);
   };
 
   const handleCreateClick = () => {
     setCurrentFoodEntry(null);
-    form.reset({
+    setFormValues({
       medicalCenter: "",
       provider: "",
       foodPlan: "",
@@ -206,7 +222,7 @@ const FoodEntriesPage: React.FC = () => {
 
   const handleEditClick = (entry: IFoodEntry) => {
     setCurrentFoodEntry(entry);
-    form.reset({
+    setFormValues({
       medicalCenter:
         typeof entry.medicalCenter === "object"
           ? entry.medicalCenter._id
@@ -239,8 +255,21 @@ const FoodEntriesPage: React.FC = () => {
     try {
       await foodEntryService.deleteFoodEntry(currentFoodEntry._id);
       toast.success("Entrada de alimento eliminada exitosamente.");
-      fetchFoodEntries();
       setIsConfirmDeleteOpen(false);
+
+      const updatedTotalItems = totalItems - 1;
+
+      if (
+        foodEntries.length === 1 &&
+        currentPage > 1 &&
+        updatedTotalItems > 0
+      ) {
+        setCurrentPage(currentPage - 1);
+      } else if (updatedTotalItems === 0) {
+        setCurrentPage(1);
+      } else {
+        fetchFoodEntries();
+      }
     } catch (error) {
       console.error("Error deleting food entry:", error);
       const apiError = error as ApiError;
@@ -253,26 +282,99 @@ const FoodEntriesPage: React.FC = () => {
     }
   };
 
-  const onSubmit = async (values: FormData) => {
+  // New handlers for enteredFoods array management
+  const handleEnteredFoodChange = (
+    index: number,
+    field: keyof IEnteredFood,
+    value: string | number
+  ) => {
+    setFormValues((prev) => {
+      const updatedEnteredFoods = [...prev.enteredFoods];
+      if (field === "quantity") {
+        updatedEnteredFoods[index] = {
+          ...updatedEnteredFoods[index],
+          [field]: Number(value), // Ensure quantity is a number
+        };
+      } else if (field === "food") {
+        // Explicitly handle 'food' field
+        updatedEnteredFoods[index] = {
+          ...updatedEnteredFoods[index],
+          [field]: String(value), // Ensure food is a string
+        };
+      }
+      return { ...prev, enteredFoods: updatedEnteredFoods };
+    });
+  };
+
+  const addEnteredFood = () => {
+    setFormValues((prev) => ({
+      ...prev,
+      enteredFoods: [...prev.enteredFoods, { food: "", quantity: 0 }],
+    }));
+  };
+
+  const removeEnteredFood = (index: number) => {
+    setFormValues((prev) => {
+      const updatedEnteredFoods = [...prev.enteredFoods];
+      updatedEnteredFoods.splice(index, 1);
+      return { ...prev, enteredFoods: updatedEnteredFoods };
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsLoading(true);
+
     try {
-      const foodEntryData: FoodEntryFormValues = {
-        ...values,
-        enteredFoods: values.enteredFoods.map((item) => ({
-          food: item.food,
-          quantity: item.quantity,
-        })),
-        // entryDate is already in "yyyy-MM-dd" format from the Calendar/date-fns
+      // Basic form validations
+      if (
+        !formValues.medicalCenter ||
+        !formValues.provider ||
+        !formValues.foodPlan ||
+        !formValues.entryDate
+      ) {
+        toast.error("Por favor, complete todos los campos obligatorios.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate enteredFoods
+      if (formValues.enteredFoods.length === 0) {
+        toast.error("Debe añadir al menos un alimento ingresado.");
+        setIsLoading(false);
+        return;
+      }
+
+      for (const ef of formValues.enteredFoods) {
+        if (!ef.food || ef.quantity <= 0) {
+          toast.error(
+            "Todos los alimentos ingresados deben tener un alimento y una cantidad válida (mayor que cero)."
+          );
+          setIsLoading(false);
+          return;
+        }
+        if (ef.quantity < 0.01 || ef.quantity > 10000000000) {
+          toast.error(
+            `La cantidad para el alimento debe estar entre 0.01 y 10,000,000,000.`
+          );
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      const dataToSend: FoodEntryFormValues = {
+        ...formValues,
+        entryDate: new Date(formValues.entryDate).toISOString(), // Ensure ISO string format
       };
 
       if (currentFoodEntry) {
         await foodEntryService.updateFoodEntry(
           currentFoodEntry._id,
-          foodEntryData
+          dataToSend
         );
         toast.success("Entrada de alimento actualizada exitosamente.");
       } else {
-        await foodEntryService.createFoodEntry(foodEntryData);
+        await foodEntryService.createFoodEntry(dataToSend);
         toast.success("Entrada de alimento creada exitosamente.");
       }
       fetchFoodEntries();
@@ -289,23 +391,180 @@ const FoodEntriesPage: React.FC = () => {
     }
   };
 
+  const handleExportExcel = async () => {
+    try {
+      setIsLoading(true);
+      const params: FoodEntryQueryParams = {
+        page: 1,
+        limit: totalItems > 0 ? totalItems : 10000,
+      };
+      if (filterMedicalCenterId !== "all") {
+        params.medicalCenterId = filterMedicalCenterId;
+      }
+      if (filterProviderId !== "all") {
+        params.providerId = filterProviderId;
+      }
+      if (filterFoodPlanId !== "all") {
+        params.foodPlanId = filterFoodPlanId;
+      }
+      if (filterFoodId !== "all") {
+        params.foodId = filterFoodId;
+      }
+      const data = await foodEntryService.exportFoodEntriesToExcel(params);
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `entradas_alimentos_${Date.now()}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success("Entradas de alimentos exportadas a Excel exitosamente.");
+    } catch (error) {
+      console.error("Error al exportar a Excel:", error);
+      const apiError = error as ApiError;
+      toast.error(
+        apiError.response?.data?.message || "Error al exportar a Excel."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExportWord = async () => {
+    try {
+      setIsLoading(true);
+      const params: FoodEntryQueryParams = {
+        page: 1,
+        limit: totalItems > 0 ? totalItems : 10000,
+      };
+      if (filterMedicalCenterId !== "all") {
+        params.medicalCenterId = filterMedicalCenterId;
+      }
+      if (filterProviderId !== "all") {
+        params.providerId = filterProviderId;
+      }
+      if (filterFoodPlanId !== "all") {
+        params.foodPlanId = filterFoodPlanId;
+      }
+      if (filterFoodId !== "all") {
+        params.foodId = filterFoodId;
+      }
+      const data = await foodEntryService.exportFoodEntriesToWord(params);
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `entradas_alimentos_${Date.now()}.docx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success("Entradas de alimentos exportadas a Word exitosamente.");
+    } catch (error) {
+      console.error("Error al exportar a Word:", error);
+      const apiError = error as ApiError;
+      toast.error(
+        apiError.response?.data?.message || "Error al exportar a Word."
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="container mx-auto py-10">
-      <h1 className="text-3xl font-bold mb-6">
-        Gestión de Entradas de Alimentos
-      </h1>
+      <h2 className="text-3xl font-bold tracking-tight mb-8">
+        Entradas de Alimentos
+      </h2>
 
-      <div className="flex justify-between items-center mb-6">
-        <Input
-          placeholder="Buscar entradas de alimentos..."
-          value={searchQuery}
-          onChange={handleSearch}
-          className="max-w-sm"
-        />
-        <Button onClick={handleCreateClick}>Crear Entrada de Alimento</Button>
+      {/* Contenedor de botones de acción y reportes, alineados a la derecha */}
+      <div className="flex items-center justify-end space-x-2 mb-6">
+        {/* BOTÓN "AGREGAR ENTRADA DE ALIMENTO" - Visible solo para administradores */}
+        {isAdmin && (
+          <Button onClick={handleCreateClick}>
+            Agregar Entrada de Alimento
+          </Button>
+        )}
+        <Button
+          variant="excel"
+          onClick={handleExportExcel}
+          disabled={isLoading}
+        >
+          <DownloadIcon className="mr-2 h-4 w-4" /> Excel
+        </Button>
+        <Button variant="word" onClick={handleExportWord} disabled={isLoading}>
+          <FileTextIcon className="mr-2 h-4 w-4" /> Word
+        </Button>
       </div>
 
-      <div className="rounded-md border">
+      {/* Contenedor de filtros, en una nueva línea, alineados a la izquierda */}
+      <div className="flex items-center justify-start space-x-2 mb-6">
+        <Select
+          onValueChange={handleMedicalCenterFilterChange}
+          value={filterMedicalCenterId}
+        >
+          <SelectTrigger className="w-[240px]">
+            <SelectValue placeholder="Centro Médico" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los Centros Médicos</SelectItem>
+            {medicalCenters.map((mc) => (
+              <SelectItem key={mc._id} value={mc._id}>
+                {mc.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          onValueChange={handleProviderFilterChange}
+          value={filterProviderId}
+        >
+          <SelectTrigger className="w-[240px]">
+            <SelectValue placeholder="Proveedor" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los Proveedores</SelectItem>
+            {providers.map((provider) => (
+              <SelectItem key={provider._id} value={provider._id}>
+                {provider.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          onValueChange={handleFoodPlanFilterChange}
+          value={filterFoodPlanId}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Plan de Alimentos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los Planes</SelectItem>
+            {foodPlans.map((plan) => (
+              <SelectItem key={plan._id} value={plan._id}>
+                {plan.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select onValueChange={handleFoodFilterChange} value={filterFoodId}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Alimento" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los Alimentos</SelectItem>
+            {foods.map((food) => (
+              <SelectItem key={food._id} value={food._id}>
+                {food.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <p className="mb-2 text-sm text-yellow-600">
+        Total de entradas de alimentos: {totalItems}
+      </p>
+
+      <div className="border rounded-md">
         <Table>
           <TableHeader>
             <TableRow>
@@ -314,19 +573,22 @@ const FoodEntriesPage: React.FC = () => {
               <TableHead>Proveedor</TableHead>
               <TableHead>Plan de Alimentos</TableHead>
               <TableHead>Alimentos Ingresados</TableHead>
-              <TableHead className="text-right">Acciones</TableHead>
+              {/* COLUMNA DE ACCIONES - Visible solo para administradores */}
+              {isAdmin && (
+                <TableHead className="text-right">Acciones</TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">
+                <TableCell colSpan={isAdmin ? 6 : 5} className="text-center">
                   Cargando...
                 </TableCell>
               </TableRow>
             ) : foodEntries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center">
+                <TableCell colSpan={isAdmin ? 6 : 5} className="text-center">
                   No hay entradas de alimentos.
                 </TableCell>
               </TableRow>
@@ -339,47 +601,59 @@ const FoodEntriesPage: React.FC = () => {
                   <TableCell>
                     {typeof entry.medicalCenter === "object"
                       ? entry.medicalCenter.name
-                      : entry.medicalCenter}
+                      : medicalCenters.find(
+                          (mc) => mc._id === entry.medicalCenter
+                        )?.name || "N/A"}
                   </TableCell>
                   <TableCell>
                     {typeof entry.provider === "object"
                       ? entry.provider.name
-                      : entry.provider}
+                      : providers.find((p) => p._id === entry.provider)?.name ||
+                        "N/A"}
                   </TableCell>
                   <TableCell>
                     {typeof entry.foodPlan === "object"
                       ? entry.foodPlan.name
-                      : entry.foodPlan}
+                      : foodPlans.find((fp) => fp._id === entry.foodPlan)
+                          ?.name || "N/A"}
                   </TableCell>
                   <TableCell>
-                    <ul>
-                      {entry.enteredFoods.map((enteredFood, index) => (
-                        <li key={index}>
-                          {typeof enteredFood.food === "object"
-                            ? enteredFood.food.name
-                            : enteredFood.food}
-                          : {enteredFood.quantity}
-                        </li>
-                      ))}
-                    </ul>
+                    {entry.enteredFoods.length > 0 ? (
+                      <ul className="list-disc list-inside text-sm">
+                        {entry.enteredFoods.map((enteredFood, index) => (
+                          <li key={index}>
+                            {typeof enteredFood.food === "object"
+                              ? enteredFood.food.name
+                              : foods.find((f) => f._id === enteredFood.food)
+                                  ?.name || "N/A"}
+                            : {enteredFood.quantity}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      "Ninguno"
+                    )}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mr-2"
-                      onClick={() => handleEditClick(entry)}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteClick(entry)}
-                    >
-                      Eliminar
-                    </Button>
-                  </TableCell>
+                  {/* BOTONES DE EDITAR Y ELIMINAR EN CADA FILA - Visibles solo para administradores */}
+                  {isAdmin && (
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mr-2"
+                        onClick={() => handleEditClick(entry)}
+                      >
+                        Editar
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteClick(entry)}
+                      >
+                        Eliminar
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))
             )}
@@ -387,315 +661,281 @@ const FoodEntriesPage: React.FC = () => {
         </Table>
       </div>
 
-      <Pagination className="mt-6">
+      <Pagination className="mt-8">
         <PaginationContent>
           <PaginationItem>
             <PaginationPrevious
-              href="#"
               onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+              className={
+                currentPage === 1 ? "pointer-events-none opacity-50" : undefined
+              }
             />
           </PaginationItem>
-          {[...Array(totalPages)].map((_, index) => (
-            <PaginationItem key={index}>
+          {Array.from({ length: totalPages }, (_, i) => (
+            <PaginationItem key={i}>
               <PaginationLink
-                href="#"
-                isActive={currentPage === index + 1}
-                onClick={() => handlePageChange(index + 1)}
+                isActive={i + 1 === currentPage}
+                onClick={() => handlePageChange(i + 1)}
               >
-                {index + 1}
+                {i + 1}
               </PaginationLink>
             </PaginationItem>
           ))}
           <PaginationItem>
             <PaginationNext
-              href="#"
               onClick={() =>
                 handlePageChange(Math.min(totalPages, currentPage + 1))
+              }
+              className={
+                currentPage === totalPages
+                  ? "pointer-events-none opacity-50"
+                  : undefined
               }
             />
           </PaginationItem>
         </PaginationContent>
       </Pagination>
 
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[700px]">
-          <DialogHeader>
-            <DialogTitle>
-              {currentFoodEntry
-                ? "Editar Entrada de Alimento"
-                : "Crear Entrada de Alimento"}
-            </DialogTitle>
-            <DialogDescription>
-              {currentFoodEntry
-                ? "Modifica los detalles de la entrada de alimento."
-                : "Añade una nueva entrada de alimento aquí."}
-            </DialogDescription>
-          </DialogHeader>
-          {/* Aquí se utiliza el componente Form */}
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="medicalCenter"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Centro Médico</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona un centro médico" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {medicalCenters.map((mc) => (
-                          <SelectItem key={mc._id} value={mc._id}>
-                            {mc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+      {/* Modal de Creación/Edición */}
+      {isAdmin && (
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                {currentFoodEntry
+                  ? "Editar Entrada de Alimento"
+                  : "Crear Entrada de Alimento"}
+              </DialogTitle>
+              <DialogDescription>
+                {currentFoodEntry
+                  ? "Modifica los detalles de la entrada de alimento."
+                  : "Añade una nueva entrada de alimento aquí."}
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              onSubmit={handleSubmit}
+              className="grid grid-cols-[auto_1fr] items-center gap-4 py-4"
+            >
+              <Label htmlFor="medicalCenter" className="text-right">
+                Centro Médico
+              </Label>
+              <Select
+                value={formValues.medicalCenter}
+                onValueChange={(value) =>
+                  setFormValues((prev) => ({ ...prev, medicalCenter: value }))
+                }
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un centro médico" />
+                </SelectTrigger>
+                <SelectContent>
+                  {medicalCenters.map((mc) => (
+                    <SelectItem key={mc._id} value={mc._id}>
+                      {mc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              <FormField
-                control={form.control}
-                name="provider"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Proveedor</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona un proveedor" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {providers.map((provider) => (
-                          <SelectItem key={provider._id} value={provider._id}>
-                            {provider.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <Label htmlFor="provider" className="text-right">
+                Proveedor
+              </Label>
+              <Select
+                value={formValues.provider}
+                onValueChange={(value) =>
+                  setFormValues((prev) => ({ ...prev, provider: value }))
+                }
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un proveedor" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers.map((provider) => (
+                    <SelectItem key={provider._id} value={provider._id}>
+                      {provider.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              <FormField
-                control={form.control}
-                name="foodPlan"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Plan de Alimentos</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Selecciona un plan de alimentos" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {foodPlans.map((plan) => (
-                          <SelectItem key={plan._id} value={plan._id}>
-                            {plan.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <Label htmlFor="foodPlan" className="text-right">
+                Plan de Alimentos
+              </Label>
+              <Select
+                value={formValues.foodPlan}
+                onValueChange={(value) =>
+                  setFormValues((prev) => ({ ...prev, foodPlan: value }))
+                }
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un plan de alimentos" />
+                </SelectTrigger>
+                <SelectContent>
+                  {foodPlans.map((plan) => (
+                    <SelectItem key={plan._id} value={plan._id}>
+                      {plan.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              <FormField
-                control={form.control}
-                name="entryDate"
-                render={({ field }) => (
-                  <FormItem className="flex flex-col">
-                    <FormLabel>Fecha de Entrada</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant={"outline"}
-                            className={cn(
-                              "w-[240px] pl-3 text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                          >
-                            {field.value ? (
-                              format(new Date(field.value), "PPP")
-                            ) : (
-                              <span>Selecciona una fecha</span>
-                            )}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={
-                            field.value ? new Date(field.value) : undefined
-                          }
-                          onSelect={(date) => {
-                            field.onChange(
-                              date ? format(date, "yyyy-MM-dd") : ""
-                            );
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div>
-                <Label className="text-lg font-semibold block mb-2">
-                  Alimentos Ingresados
-                </Label>
-                {fields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="grid grid-cols-6 gap-4 mb-4 items-end"
+              <Label htmlFor="entryDate" className="text-right">
+                Fecha de Entrada
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant={"outline"}
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !formValues.entryDate && "text-muted-foreground"
+                    )}
                   >
-                    {/* Campo de Alimento */}
-                    <div className="col-span-3">
-                      <FormField
-                        control={form.control}
-                        name={`enteredFoods.${index}.food`}
-                        render={({ field: itemField }) => (
-                          <FormItem className="mb-0">
-                            <FormLabel
-                              className={index === 0 ? "block" : "sr-only"}
-                            >
-                              Alimento
-                            </FormLabel>
-                            <Select
-                              onValueChange={itemField.onChange}
-                              value={itemField.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Selecciona un alimento" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {foods.map((food) => (
-                                  <SelectItem key={food._id} value={food._id}>
-                                    {food.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {formValues.entryDate ? (
+                      format(parseISO(formValues.entryDate), "PPP")
+                    ) : (
+                      <span>Selecciona una fecha</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0">
+                  <Calendar
+                    mode="single"
+                    selected={
+                      formValues.entryDate
+                        ? parseISO(formValues.entryDate)
+                        : undefined
+                    }
+                    onSelect={(date) =>
+                      setFormValues((prev) => ({
+                        ...prev,
+                        entryDate: date ? format(date, "yyyy-MM-dd") : "",
+                      }))
+                    }
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
 
-                    {/* Campo de Cantidad */}
-                    <div className="col-span-2">
-                      <FormField
-                        control={form.control}
-                        name={`enteredFoods.${index}.quantity`}
-                        render={({ field: itemField }) => (
-                          <FormItem className="mb-0">
-                            <FormLabel
-                              className={index === 0 ? "block" : "sr-only"}
-                            >
-                              Cantidad
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                placeholder="Cantidad"
-                                {...itemField} // Usa {...itemField} directamente
-                                onChange={(e) => {
-                                  // Asegúrate de parsear a número para react-hook-form
-                                  itemField.onChange(
-                                    parseFloat(e.target.value)
-                                  );
-                                }}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    {/* Botón de Eliminar Alimento */}
-                    <div className="col-span-1 flex items-center justify-end">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="icon"
-                        onClick={() => remove(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => append({ food: "", quantity: 0 })}
-                  className="mt-2"
+              <h3 className="text-lg font-semibold mt-4 col-span-2">
+                Alimentos Ingresados
+              </h3>
+              {formValues.enteredFoods.map((ef, index) => (
+                <div
+                  key={index}
+                  className="grid grid-cols-10 items-center gap-4 border p-3 rounded-md relative col-span-2"
                 >
-                  <PlusIcon className="mr-2 h-4 w-4" /> Añadir Alimento
-                </Button>
-                {form.formState.errors.enteredFoods && (
-                  // Muestra el mensaje de error del array si existe
-                  <p className="text-red-500 text-sm mt-2">
-                    {form.formState.errors.enteredFoods.message}
-                  </p>
-                )}
-              </div>
+                  <div className="col-span-6">
+                    <Label htmlFor={`food-${index}`} className="sr-only">
+                      Alimento
+                    </Label>
+                    <Select
+                      value={ef.food}
+                      onValueChange={(value) =>
+                        handleEnteredFoodChange(index, "food", value)
+                      }
+                      required
+                    >
+                      <SelectTrigger id={`food-${index}`}>
+                        <SelectValue placeholder="Selecciona alimento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {foods.map((food) => (
+                          <SelectItem key={food._id} value={food._id}>
+                            {food.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2">
+                    <Label htmlFor={`quantity-${index}`} className="sr-only">
+                      Cantidad
+                    </Label>
+                    <Input
+                      id={`quantity-${index}`}
+                      type="number"
+                      value={ef.quantity}
+                      onChange={(e) =>
+                        handleEnteredFoodChange(
+                          index,
+                          "quantity",
+                          e.target.value
+                        )
+                      }
+                      min="0.01"
+                      step="any"
+                      required
+                    />
+                  </div>
+                  <div className="col-span-2 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeEnteredFood(index)}
+                    >
+                      <XIcon className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              <Button
+                type="button"
+                onClick={addEnteredFood}
+                className="mt-2 w-full col-span-2"
+                variant="outline"
+              >
+                <PlusIcon className="mr-2 h-4 w-4" /> Añadir Alimento Ingresado
+              </Button>
 
-              <DialogFooter className="mt-6">
+              <DialogFooter className="mt-6 col-span-2">
                 <Button type="submit" disabled={isLoading}>
                   {isLoading ? "Guardando..." : "Guardar cambios"}
                 </Button>
               </DialogFooter>
             </form>
-          </Form>{" "}
-          {/* Cierre del componente Form */}
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
 
-      <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>¿Estás absolutamente seguro?</DialogTitle>
-            <DialogDescription>
-              Esta acción no se puede deshacer. Esto eliminará permanentemente
-              la entrada de alimento de la base de datos.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsConfirmDeleteOpen(false)}
-              disabled={isLoading}
-            >
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleConfirmDelete}
-              disabled={isLoading}
-            >
-              {isLoading ? "Eliminando..." : "Eliminar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Modal de Confirmación de Eliminación */}
+      {isAdmin && (
+        <Dialog
+          open={isConfirmDeleteOpen}
+          onOpenChange={setIsConfirmDeleteOpen}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>¿Estás absolutamente seguro?</DialogTitle>
+              <DialogDescription>
+                Esta acción no se puede deshacer. Esto eliminará permanentemente
+                la entrada de alimento de la base de datos.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsConfirmDeleteOpen(false)}
+                disabled={isLoading}
+              >
+                Cancelar
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleConfirmDelete}
+                disabled={isLoading}
+              >
+                {isLoading ? "Eliminando..." : "Eliminar"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
