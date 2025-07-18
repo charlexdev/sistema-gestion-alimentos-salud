@@ -1,11 +1,10 @@
-// server/src/models/medicalCenter.model.ts
 import { Schema, model, Document, Types } from "mongoose";
 
 export interface IMedicalCenter extends Document {
   name: string;
   address: string;
-  email?: string; // Opcional, pero al menos uno de email o phoneNumber debe existir
-  phoneNumber?: string; // Opcional, pero al menos uno de email o phoneNumber debe existir
+  email?: string;
+  phoneNumber?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,15 +18,13 @@ const MedicalCenterSchema = new Schema<IMedicalCenter>(
       required: false,
       trim: true,
       maxlength: 50,
-      // Puedes añadir validación de formato aquí si es necesario
       // match: [/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/, 'Por favor, introduce un correo electrónico válido']
     },
     phoneNumber: {
       type: String,
       required: false,
       trim: true,
-      maxlength: 8, // Máximo 8 caracteres
-      // Puedes añadir validación de formato para 8 dígitos si es necesario
+      maxlength: 8,
       // match: [/^\d{8}$/, 'El número de teléfono fijo debe tener exactamente 8 dígitos.']
     },
   },

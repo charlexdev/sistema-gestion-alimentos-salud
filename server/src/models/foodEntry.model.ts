@@ -1,11 +1,9 @@
-// server/src/models/foodEntry.model.ts
 import { Schema, model, Document, Types } from "mongoose";
 import { IMedicalCenter } from "./medicalCenter.model";
 import { IProvider } from "./provider.model";
 import { IFood } from "./food.model";
-import { IFoodPlan } from "./foodPlan.model"; // Importar el modelo de Plan de Alimentos
+import { IFoodPlan } from "./foodPlan.model";
 
-// Interfaz para los detalles de alimentos en una entrada
 export interface IEnteredFood {
   food: Types.ObjectId | IFood;
   quantity: number;
@@ -14,9 +12,9 @@ export interface IEnteredFood {
 export interface IFoodEntry extends Document {
   medicalCenter: Types.ObjectId | IMedicalCenter;
   provider: Types.ObjectId | IProvider;
-  foodPlan: Types.ObjectId | IFoodPlan; // Vínculo directo al plan específico
+  foodPlan: Types.ObjectId | IFoodPlan;
   entryDate: Date;
-  enteredFoods: IEnteredFood[]; // Array de alimentos y cantidades en esta entrada
+  enteredFoods: IEnteredFood[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -28,10 +26,10 @@ const EnteredFoodSchema = new Schema<IEnteredFood>(
       type: Number,
       required: true,
       min: 0,
-      max: 10000000000, // Diez mil millones
+      max: 10000000000,
     },
   },
-  { _id: false } // No crear un _id para subdocumentos
+  { _id: false }
 );
 
 const FoodEntrySchema = new Schema<IFoodEntry>(
@@ -42,9 +40,9 @@ const FoodEntrySchema = new Schema<IFoodEntry>(
       required: true,
     },
     provider: { type: Schema.Types.ObjectId, ref: "Provider", required: true },
-    foodPlan: { type: Schema.Types.ObjectId, ref: "FoodPlan", required: true }, // Referencia obligatoria a un plan
+    foodPlan: { type: Schema.Types.ObjectId, ref: "FoodPlan", required: true },
     entryDate: { type: Date, required: true, default: Date.now },
-    enteredFoods: { type: [EnteredFoodSchema], default: [] }, // Array de subdocumentos
+    enteredFoods: { type: [EnteredFoodSchema], default: [] },
   },
   { timestamps: true }
 );

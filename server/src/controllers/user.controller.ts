@@ -1,10 +1,26 @@
-// backend/src/controllers/user.controller.ts
 import { Request, Response } from "express";
 import User, { IUser } from "../models/user.model";
 import bcrypt from "bcryptjs";
 import { isValidObjectId } from "mongoose";
+import ExcelJS from "exceljs";
+import * as fs from "fs";
+import * as path from "path";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  AlignmentType,
+  VerticalAlign,
+  BorderStyle,
+  //ShadingType,
+  ImageRun,
+} from "docx";
 
-// Helper para manejar errores
 const handleControllerError = (
   res: Response,
   error: unknown,
@@ -17,7 +33,6 @@ const handleControllerError = (
   res.status(500).json({ message: "Error interno del servidor." });
 };
 
-// Obtener todos los usuarios con paginación y búsqueda
 export const getAllUsers = async (
   req: Request,
   res: Response
@@ -43,7 +58,7 @@ export const getAllUsers = async (
     const totalPages = Math.ceil(totalItems / limit);
 
     const users = await User.find(query)
-      .select("-password") // No enviar la contraseña
+      .select("-password")
       .skip((page - 1) * limit)
       .limit(limit);
 
@@ -53,13 +68,12 @@ export const getAllUsers = async (
   }
 };
 
-// Obtener un usuario por ID
 export const getUserById = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
-    const userId = req.params.id; // <-- Captura el ID aquí
+    const userId = req.params.id;
 
     if (!isValidObjectId(userId)) {
       res.status(400).json({ message: "ID de usuario inválido." });
@@ -77,7 +91,6 @@ export const getUserById = async (
   }
 };
 
-// Crear un nuevo usuario
 export const createUser = async (
   req: Request,
   res: Response
@@ -86,12 +99,10 @@ export const createUser = async (
     const { username, email, password, role } = req.body;
 
     if (!username || !email || !password) {
-      res
-        .status(400)
-        .json({
-          message:
-            "Todos los campos obligatorios son requeridos (username, email, password).",
-        });
+      res.status(400).json({
+        message:
+          "Todos los campos obligatorios son requeridos (username, email, password).",
+      });
       return;
     }
 
@@ -113,7 +124,7 @@ export const createUser = async (
       username,
       email,
       password: hashedPassword,
-      role: role || "user", // Default a 'user' si no se especifica
+      role: role || "user",
     });
 
     await newUser.save();
@@ -126,41 +137,34 @@ export const createUser = async (
   }
 };
 
-// Actualizar un usuario existente
 export const updateUser = async (
   req: Request,
   res: Response
 ): Promise<void> => {
   try {
     const { username, email, password, role } = req.body;
-    const userId = req.params.id; // <-- ID que viene de la URL
+    const userId = req.params.id;
 
-    // --- INICIO LOGS DE DEPURACIÓN EN updateUser (BACKEND) ---
     console.log("BACKEND LOG (5): updateUser - Recibida solicitud PUT.");
     console.log(
       "BACKEND LOG (6): updateUser - ID de los parámetros de la URL (req.params.id):",
       userId
-    ); // ¡ESTO ES CRUCIAL!
+    );
     console.log(
       "BACKEND LOG (7): updateUser - Cuerpo de la solicitud (req.body):",
       req.body
     );
-    // --- FIN LOGS DE DEPURACIÓN EN updateUser (BACKEND) ---
 
-    // La validación original de ID no proporcionado debe ir antes de isValidObjectId
     if (!userId) {
       console.error(
         "BACKEND LOG: updateUser - ¡userId es undefined o null en el controlador!"
       );
-      res
-        .status(400)
-        .json({
-          message: "ID de usuario no proporcionado para la actualización.",
-        });
+      res.status(400).json({
+        message: "ID de usuario no proporcionado para la actualización.",
+      });
       return;
     }
 
-    // Validación para asegurar que el ID es un ObjectId válido de Mongoose
     if (!isValidObjectId(userId)) {
       console.error(
         "BACKEND LOG: updateUser - ID de usuario no válido para ObjectId:",
@@ -172,13 +176,10 @@ export const updateUser = async (
       return;
     }
 
-    // La contraseña es obligatoria para la actualización
     if (!password) {
-      res
-        .status(400)
-        .json({
-          message: "La contraseña es obligatoria para actualizar el usuario.",
-        });
+      res.status(400).json({
+        message: "La contraseña es obligatoria para actualizar el usuario.",
+      });
       return;
     }
 
@@ -188,12 +189,10 @@ export const updateUser = async (
       return;
     }
 
-    // Actualizar campos si se proporcionan
     if (username) user.username = username;
     if (email) user.email = email;
     if (role) user.role = role;
 
-    // Siempre hashear y actualizar la contraseña ya que ahora es obligatoria
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(password, salt);
 
@@ -207,7 +206,6 @@ export const updateUser = async (
   }
 };
 
-// Eliminar un usuario
 export const deleteUser = async (
   req: Request,
   res: Response
@@ -216,11 +214,9 @@ export const deleteUser = async (
     const userId = req.params.id;
 
     if (!userId) {
-      res
-        .status(400)
-        .json({
-          message: "ID de usuario no proporcionado para la eliminación.",
-        });
+      res.status(400).json({
+        message: "ID de usuario no proporcionado para la eliminación.",
+      });
       return;
     }
 
@@ -231,7 +227,7 @@ export const deleteUser = async (
       return;
     }
 
-    const result = await User.findByIdAndDelete(userId); // Cambiado a userId
+    const result = await User.findByIdAndDelete(userId);
     if (!result) {
       res.status(404).json({ message: "Usuario no encontrado para eliminar." });
       return;
@@ -242,7 +238,6 @@ export const deleteUser = async (
   }
 };
 
-// Exportar usuarios a Excel
 export const exportUsersToExcel = async (
   req: Request,
   res: Response
@@ -266,9 +261,12 @@ export const exportUsersToExcel = async (
       .select("-password")
       .lean();
 
-    const ExcelJS = await import("exceljs");
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Usuarios");
+
+    const headerRowColor = "ADD8E6"; // Azul claro para el fondo de las cabeceras
+    const textColor = "1F4E79"; // Azul oscuro para el texto
+    const borderColor = "4682B4"; // Azul medio para los bordes
 
     worksheet.columns = [
       { header: "ID", key: "_id", width: 30 },
@@ -278,15 +276,48 @@ export const exportUsersToExcel = async (
       { header: "Fecha de Creación", key: "createdAt", width: 20 },
     ];
 
+    const headerRow = worksheet.getRow(1);
+    headerRow.eachCell((cell) => {
+      cell.font = {
+        bold: true,
+        color: { argb: `FF${textColor}` },
+      };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: `FF${headerRowColor}` },
+      };
+      cell.border = {
+        top: { style: "thin", color: { argb: `FF${borderColor}` } },
+        left: { style: "thin", color: { argb: `FF${borderColor}` } },
+        bottom: { style: "thin", color: { argb: `FF${borderColor}` } },
+        right: { style: "thin", color: { argb: `FF${borderColor}` } },
+      };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+    });
+
     users.forEach((user) => {
-      worksheet.addRow({
+      const row = worksheet.addRow({
         _id: user._id.toString(),
         username: user.username,
         email: user.email,
         role: user.role,
         createdAt: user.createdAt
-          ? new Date(user.createdAt).toLocaleDateString("es-ES")
+          ? new Date(user.createdAt).toLocaleString("es-ES")
           : "",
+      });
+
+      row.eachCell((cell) => {
+        cell.font = {
+          color: { argb: `FF${textColor}` },
+        };
+        cell.border = {
+          top: { style: "thin", color: { argb: `FF${borderColor}` } },
+          left: { style: "thin", color: { argb: `FF${borderColor}` } },
+          bottom: { style: "thin", color: { argb: `FF${borderColor}` } },
+          right: { style: "thin", color: { argb: `FF${borderColor}` } },
+        };
+        cell.alignment = { vertical: "middle", horizontal: "left" };
       });
     });
 
@@ -296,7 +327,7 @@ export const exportUsersToExcel = async (
     );
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=" + "usuarios.xlsx"
+      "attachment; filename=" + `usuarios_${Date.now()}.xlsx`
     );
 
     await workbook.xlsx.write(res);
@@ -306,7 +337,6 @@ export const exportUsersToExcel = async (
   }
 };
 
-// Exportar usuarios a Word
 export const exportUsersToWord = async (
   req: Request,
   res: Response
@@ -330,99 +360,279 @@ export const exportUsersToWord = async (
       .select("-password")
       .lean();
 
-    const docx = await import("docx");
-    const {
-      Document,
-      Packer,
-      Paragraph,
-      TextRun,
-      Table,
-      TableRow,
-      TableCell,
-      WidthType,
-      AlignmentType,
-    } = docx;
+    const textColor = "1F4E79"; // Azul oscuro para el texto
+    const borderColor = "4682B4"; // Azul medio para los bordes
+
+    const logoPath = path.join(__dirname, "../assets/Imagen1.png");
+    let logoBuffer: Buffer | undefined;
+    let logoUint8Array: Uint8Array | undefined;
+
+    try {
+      logoBuffer = fs.readFileSync(logoPath);
+      logoUint8Array = new Uint8Array(logoBuffer);
+    } catch (logoError) {
+      console.warn(
+        "Advertencia: No se pudo cargar el logo. Asegúrate de que la ruta sea correcta:",
+        logoPath
+      );
+    }
+
+    const tableHeaderCells = ["Username", "Email", "Rol", "Fecha Creación"].map(
+      (headerText) =>
+        new TableCell({
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: headerText,
+                  bold: true,
+                  color: textColor,
+                }),
+              ],
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+          verticalAlign: VerticalAlign.CENTER,
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 8, color: borderColor },
+            bottom: { style: BorderStyle.SINGLE, size: 8, color: borderColor },
+            left: { style: BorderStyle.SINGLE, size: 8, color: borderColor },
+            right: { style: BorderStyle.SINGLE, size: 8, color: borderColor },
+          },
+        })
+    );
 
     const tableRows = [
       new TableRow({
-        children: [
-          new TableCell({
-            children: [
-              new Paragraph({
-                children: [new TextRun("Username")],
-                alignment: AlignmentType.CENTER,
-              }),
-            ],
-            width: { size: 3000, type: WidthType.DXA },
-          }),
-          new TableCell({
-            children: [
-              new Paragraph({
-                children: [new TextRun("Email")],
-                alignment: AlignmentType.CENTER,
-              }),
-            ],
-            width: { size: 4000, type: WidthType.DXA },
-          }),
-          new TableCell({
-            children: [
-              new Paragraph({
-                children: [new TextRun("Rol")],
-                alignment: AlignmentType.CENTER,
-              }),
-            ],
-            width: { size: 1500, type: WidthType.DXA },
-          }),
-          new TableCell({
-            children: [
-              new Paragraph({
-                children: [new TextRun("Fecha Creación")],
-                alignment: AlignmentType.CENTER,
-              }),
-            ],
-            width: { size: 2500, type: WidthType.DXA },
-          }),
-        ],
+        children: tableHeaderCells,
       }),
-      ...users.map(
-        (user) =>
-          new TableRow({
-            children: [
-              new TableCell({ children: [new Paragraph(user.username)] }),
-              new TableCell({ children: [new Paragraph(user.email)] }),
-              new TableCell({ children: [new Paragraph(user.role)] }),
-              new TableCell({
-                children: [
-                  new Paragraph(user.createdAt?.toLocaleDateString() || ""),
-                ],
-              }),
-            ],
-          })
-      ),
     ];
+
+    users.forEach((user) => {
+      tableRows.push(
+        new TableRow({
+          children: [
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: user.username,
+                      color: textColor,
+                    }),
+                  ],
+                }),
+              ],
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: user.email,
+                      color: textColor,
+                    }),
+                  ],
+                }),
+              ],
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: user.role,
+                      color: textColor,
+                    }),
+                  ],
+                }),
+              ],
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: user.createdAt
+                        ? new Date(user.createdAt).toLocaleString("es-ES")
+                        : "N/A",
+                      color: textColor,
+                    }),
+                  ],
+                }),
+              ],
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
+            }),
+          ],
+        })
+      );
+    });
 
     const doc = new Document({
       sections: [
         {
           children: [
+            ...(logoUint8Array
+              ? [
+                  new Paragraph({
+                    children: [
+                      new ImageRun({
+                        data: logoUint8Array,
+                        type: "png",
+                        transformation: {
+                          width: 100,
+                          height: 100,
+                        },
+                      }),
+                    ],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 200 },
+                  }),
+                ]
+              : []),
             new Paragraph({
-              children: [new TextRun("Listado de Usuarios")],
+              children: [
+                new TextRun({
+                  text: "Informe de Usuarios",
+                  bold: true,
+                  size: 48,
+                  color: textColor,
+                }),
+              ],
               alignment: AlignmentType.CENTER,
-              heading: docx.HeadingLevel.HEADING_1,
+              spacing: { after: 400 },
             }),
-            new Paragraph({ text: "" }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Detalles de Usuarios",
+                  bold: true,
+                  size: 28,
+                  color: textColor,
+                }),
+              ],
+              spacing: { before: 200, after: 100 },
+              alignment: AlignmentType.CENTER,
+            }),
             new Table({
               rows: tableRows,
-              width: { size: 9000, type: WidthType.DXA },
+              width: { size: 100, type: WidthType.PERCENTAGE },
+            }),
+            new Paragraph({
+              alignment: AlignmentType.RIGHT,
+              children: [
+                new TextRun({
+                  text: "_____________________________",
+                  break: 1,
+                  color: textColor,
+                }),
+                new TextRun({
+                  text: "Firma del Responsable",
+                  break: 1,
+                  bold: true,
+                  color: textColor,
+                }),
+                new TextRun({
+                  text: "",
+                  break: 1,
+                  italics: true,
+                  color: textColor,
+                }),
+              ],
+              spacing: { before: 400 },
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "",
+                  bold: true,
+                  color: textColor,
+                }),
+              ],
               alignment: AlignmentType.CENTER,
+              spacing: { before: 400 },
             }),
           ],
         },
       ],
     });
 
-    const b64string = await Packer.toBase64String(doc);
-    const buffer = Buffer.from(b64string, "base64");
+    const buffer = await Packer.toBuffer(doc);
 
     res.setHeader(
       "Content-Type",
@@ -430,7 +640,7 @@ export const exportUsersToWord = async (
     );
     res.setHeader(
       "Content-Disposition",
-      "attachment; filename=" + "usuarios.docx"
+      "attachment; filename=" + `usuarios_${Date.now()}.docx`
     );
     res.send(buffer);
   } catch (error) {

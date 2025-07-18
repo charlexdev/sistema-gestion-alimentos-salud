@@ -1,4 +1,3 @@
-// src/routes/user.routes.ts
 import { Router } from "express";
 import {
   getAllUsers,
@@ -16,7 +15,6 @@ import {
 
 const router = Router();
 
-// Rutas protegidas para la gestión de usuarios (solo administradores)
 router.get("/", authenticateToken, authorizeRole(["admin"]), getAllUsers);
 router.get("/:id", authenticateToken, authorizeRole(["admin"]), getUserById);
 router.post("/", authenticateToken, authorizeRole(["admin"]), createUser);
@@ -24,12 +22,10 @@ router.post("/", authenticateToken, authorizeRole(["admin"]), createUser);
 router.put(
   "/:id",
   (req, res, next) => {
-    // --- INICIO LOGS DE DEPURACIÓN EN user.routes.ts (BACKEND) ---
     console.log(
       "BACKEND LOG (8): user.routes.ts - Capturando ID para PUT:",
       req.params.id
     );
-    // --- FIN LOGS DE DEPURACIÓN EN user.routes.ts (BACKEND) ---
     next();
   },
   authenticateToken,
@@ -40,12 +36,10 @@ router.put(
 router.delete(
   "/:id",
   (req, res, next) => {
-    // --- INICIO LOGS DE DEPURACIÓN EN user.routes.ts (BACKEND) ---
     console.log(
       "BACKEND LOG (9): user.routes.ts - Capturando ID para DELETE:",
       req.params.id
     );
-    // --- FIN LOGS DE DEPURACIÓN EN user.routes.ts (BACKEND) ---
     next();
   },
   authenticateToken,
@@ -53,7 +47,6 @@ router.delete(
   deleteUser
 );
 
-// Rutas de exportación
 router.get(
   "/export/excel",
   authenticateToken,

@@ -8,7 +8,11 @@
     "forceConsistentCasingInFileNames": true /* Ensure that casing is consistent in imports. */,
     "strict": true /* Enable all strict type-checking options. */,
     "skipLibCheck": true /* Skip type checking all .d.ts files. */,
-    "resolveJsonModule": true /* Enable importing .json files */
+    "resolveJsonModule": true /* Enable importing .json files */,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    }
   },
   "include": ["src/**/*.ts"] /* Specify files to include in compilation. */,
   "exclude": ["node_modules"] /* Specify files to exclude from compilation. */

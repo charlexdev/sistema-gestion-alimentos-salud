@@ -1,8 +1,9 @@
-// server/src/controllers/stock.controller.ts
 import { Request, Response } from "express";
 import Stock from "../models/stock.model";
 import { isValidObjectId } from "mongoose";
 import ExcelJS from "exceljs";
+import * as fs from "fs";
+import * as path from "path";
 import {
   Document,
   Packer,
@@ -14,9 +15,10 @@ import {
   WidthType,
   VerticalAlign,
   BorderStyle,
+  AlignmentType,
+  ImageRun,
 } from "docx";
 
-// Función auxiliar para manejar errores de validación de Mongoose
 const handleMongooseValidationError = (res: Response, error: any): void => {
   if (error.name === "ValidationError") {
     const messages = Object.values(error.errors).map((err: any) => err.message);
@@ -26,7 +28,6 @@ const handleMongooseValidationError = (res: Response, error: any): void => {
   }
 };
 
-// Obtener todas las existencias (vista global) con filtros y paginación
 export const getAllStock = async (
   req: Request,
   res: Response
@@ -76,7 +77,6 @@ export const getAllStock = async (
   }
 };
 
-// Exportar Existencias a Excel
 export const exportStockToExcel = async (
   req: Request,
   res: Response
@@ -101,6 +101,10 @@ export const exportStockToExcel = async (
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Existencias");
 
+    const headerRowColor = "ADD8E6"; // Azul claro
+    const textColor = "1F4E79"; // Azul oscuro
+    const borderColor = "4682B4"; // Azul medio
+
     worksheet.columns = [
       { header: "Centro Médico", key: "medicalCenter", width: 30 },
       { header: "Alimento", key: "food", width: 30 },
@@ -109,13 +113,46 @@ export const exportStockToExcel = async (
       { header: "Última Actualización", key: "updatedAt", width: 25 },
     ];
 
+    const headerRow = worksheet.getRow(1);
+    headerRow.eachCell((cell) => {
+      cell.font = {
+        bold: true,
+        color: { argb: `FF${textColor}` },
+      };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: `FF${headerRowColor}` },
+      };
+      cell.border = {
+        top: { style: "thin", color: { argb: `FF${borderColor}` } },
+        left: { style: "thin", color: { argb: `FF${borderColor}` } },
+        bottom: { style: "thin", color: { argb: `FF${borderColor}` } },
+        right: { style: "thin", color: { argb: `FF${borderColor}` } },
+      };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+    });
+
     stock.forEach((s) => {
-      worksheet.addRow({
+      const row = worksheet.addRow({
         medicalCenter: (s.medicalCenter as any)?.name || "N/A",
         food: (s.food as any)?.name || "N/A",
         quantity: s.quantity,
         unitOfMeasurement: (s.food as any)?.unitOfMeasurement?.name || "N/A",
         updatedAt: s.updatedAt ? new Date(s.updatedAt).toLocaleString() : "N/A",
+      });
+
+      row.eachCell((cell) => {
+        cell.font = {
+          color: { argb: `FF${textColor}` },
+        };
+        cell.border = {
+          top: { style: "thin", color: { argb: `FF${borderColor}` } },
+          left: { style: "thin", color: { argb: `FF${borderColor}` } },
+          bottom: { style: "thin", color: { argb: `FF${borderColor}` } },
+          right: { style: "thin", color: { argb: `FF${borderColor}` } },
+        };
+        cell.alignment = { vertical: "middle", horizontal: "left" };
       });
     });
 
@@ -138,7 +175,6 @@ export const exportStockToExcel = async (
   }
 };
 
-// Exportar Existencias a Word
 export const exportStockToWord = async (
   req: Request,
   res: Response
@@ -160,23 +196,57 @@ export const exportStockToWord = async (
         select: "name description",
       });
 
+    const textColor = "1F4E79"; // Azul oscuro
+    const borderColor = "4682B4"; // Azul medio
+
+    const logoPath = path.join(__dirname, "../assets/Imagen1.png");
+    let logoBuffer: Buffer | undefined;
+    let logoUint8Array: Uint8Array | undefined;
+
+    try {
+      logoBuffer = fs.readFileSync(logoPath);
+      logoUint8Array = new Uint8Array(logoBuffer);
+    } catch (logoError) {
+      console.warn(
+        "Advertencia: No se pudo cargar el logo. Asegúrate de que la ruta sea correcta:",
+        logoPath
+      );
+    }
+
+    const tableHeaderCells = [
+      "Centro Médico",
+      "Alimento",
+      "Cantidad en Stock",
+      "Unidad de Medida",
+      "Última Actualización",
+    ].map(
+      (headerText) =>
+        new TableCell({
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: headerText,
+                  bold: true,
+                  color: textColor,
+                }),
+              ],
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+          verticalAlign: VerticalAlign.CENTER,
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 8, color: borderColor },
+            bottom: { style: BorderStyle.SINGLE, size: 8, color: borderColor },
+            left: { style: BorderStyle.SINGLE, size: 8, color: borderColor },
+            right: { style: BorderStyle.SINGLE, size: 8, color: borderColor },
+          },
+        })
+    );
+
     const tableRows = [
       new TableRow({
-        children: [
-          new TableCell({
-            children: [new Paragraph({ text: "Centro Médico" })],
-          }),
-          new TableCell({ children: [new Paragraph({ text: "Alimento" })] }),
-          new TableCell({
-            children: [new Paragraph({ text: "Cantidad en Stock" })],
-          }),
-          new TableCell({
-            children: [new Paragraph({ text: "Unidad de Medida" })],
-          }),
-          new TableCell({
-            children: [new Paragraph({ text: "Última Actualización" })],
-          }),
-        ],
+        children: tableHeaderCells,
       }),
     ];
 
@@ -186,26 +256,160 @@ export const exportStockToWord = async (
           children: [
             new TableCell({
               children: [
-                new Paragraph((s.medicalCenter as any)?.name || "N/A"),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: (s.medicalCenter as any)?.name || "N/A",
+                      color: textColor,
+                    }),
+                  ],
+                }),
               ],
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
             }),
-            new TableCell({
-              children: [new Paragraph((s.food as any)?.name || "N/A")],
-            }),
-            new TableCell({ children: [new Paragraph(s.quantity.toString())] }),
             new TableCell({
               children: [
-                new Paragraph(
-                  (s.food as any)?.unitOfMeasurement?.name || "N/A"
-                ),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: (s.food as any)?.name || "N/A",
+                      color: textColor,
+                    }),
+                  ],
+                }),
               ],
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
             }),
             new TableCell({
               children: [
-                new Paragraph(
-                  s.updatedAt ? new Date(s.updatedAt).toLocaleString() : "N/A"
-                ),
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: s.quantity.toString(),
+                      color: textColor,
+                    }),
+                  ],
+                }),
               ],
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: (s.food as any)?.unitOfMeasurement?.name || "N/A",
+                      color: textColor,
+                    }),
+                  ],
+                }),
+              ],
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: s.updatedAt
+                        ? new Date(s.updatedAt).toLocaleString()
+                        : "N/A",
+                      color: textColor,
+                    }),
+                  ],
+                }),
+              ],
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
             }),
           ],
         })
@@ -216,19 +420,87 @@ export const exportStockToWord = async (
       sections: [
         {
           children: [
+            ...(logoUint8Array
+              ? [
+                  new Paragraph({
+                    children: [
+                      new ImageRun({
+                        data: logoUint8Array,
+                        type: "png",
+                        transformation: {
+                          width: 100,
+                          height: 100,
+                        },
+                      }),
+                    ],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 200 },
+                  }),
+                ]
+              : []),
             new Paragraph({
               children: [
                 new TextRun({
-                  text: "Reporte de Existencias",
+                  text: "Informe de Existencias",
                   bold: true,
-                  size: 32,
+                  size: 48,
+                  color: textColor,
                 }),
               ],
-              spacing: { after: 200 },
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 400 },
+            }),
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Detalles de Existencias",
+                  bold: true,
+                  size: 28,
+                  color: textColor,
+                }),
+              ],
+              spacing: { before: 200, after: 100 },
+              alignment: AlignmentType.CENTER,
             }),
             new Table({
               rows: tableRows,
               width: { size: 100, type: WidthType.PERCENTAGE },
+            }),
+
+            new Paragraph({
+              alignment: AlignmentType.RIGHT,
+              children: [
+                new TextRun({
+                  text: "_____________________________",
+                  break: 1,
+                  color: textColor,
+                }),
+                new TextRun({
+                  text: "Firma del Responsable",
+                  break: 1,
+                  bold: true,
+                  color: textColor,
+                }),
+                new TextRun({
+                  text: "",
+                  break: 1,
+                  italics: true,
+                  color: textColor,
+                }),
+              ],
+              spacing: { before: 400 },
+            }),
+
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "",
+                  bold: true,
+                  color: textColor,
+                }),
+              ],
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 400 },
             }),
           ],
         },

@@ -1,4 +1,3 @@
-// server/src/routes/foodEntry.routes.ts
 import { Router } from "express";
 import {
   createFoodEntry,
@@ -6,8 +5,8 @@ import {
   getFoodEntryById,
   updateFoodEntry,
   deleteFoodEntry,
-  exportFoodEntriesToExcel, // Para reportes
-  exportFoodEntriesToWord, // Para reportes
+  exportFoodEntriesToExcel,
+  exportFoodEntriesToWord,
 } from "../controllers/foodEntry.controller";
 import {
   authenticateToken,
@@ -16,18 +15,12 @@ import {
 
 const router = Router();
 
-// Rutas para la gestión de Entradas de Alimentos
-
-// Crear Entrada de Alimentos (Solo administradores)
 router.post("/", authenticateToken, authorizeRole(["admin"]), createFoodEntry);
 
-// Obtener todas las Entradas de Alimentos (Usuarios autenticados)
 router.get("/", authenticateToken, getAllFoodEntries);
 
-// Obtener una Entrada de Alimentos por ID (Usuarios autenticados)
 router.get("/:id", authenticateToken, getFoodEntryById);
 
-// Actualizar Entrada de Alimentos (Solo administradores)
 router.put(
   "/:id",
   authenticateToken,
@@ -35,7 +28,6 @@ router.put(
   updateFoodEntry
 );
 
-// Eliminar Entrada de Alimentos (Solo administradores)
 router.delete(
   "/:id",
   authenticateToken,
@@ -43,7 +35,6 @@ router.delete(
   deleteFoodEntry
 );
 
-// Rutas de exportación de reportes para Entradas de Alimentos
 router.get("/export/excel", authenticateToken, exportFoodEntriesToExcel);
 router.get("/export/word", authenticateToken, exportFoodEntriesToWord);
 

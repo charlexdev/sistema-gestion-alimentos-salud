@@ -1,4 +1,3 @@
-// server/src/app.ts
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
@@ -10,19 +9,16 @@ import providerRoutes from "./routes/provider.routes";
 import userRoutes from "./routes/user.routes";
 import foodEntryRoutes from "./routes/foodEntry.routes";
 import foodPlanRoutes from "./routes/foodPlan.routes";
-import medicalCenterRoutes from "./routes/medicalCenter.routes"; // Importar rutas de centros médicos
-import stockRoutes from "./routes/stock.routes"; // Importar rutas de stock
+import medicalCenterRoutes from "./routes/medicalCenter.routes";
+import stockRoutes from "./routes/stock.routes";
 
-// Cargar variables de entorno desde .env
 dotenv.config();
 
 const app = express();
 
-// Middleware
 app.use(express.json());
 app.use(cors());
 
-// Conexión a la base de datos
 const connectDB = async () => {
   try {
     const mongoUri = process.env.MONGO_URI;
@@ -39,7 +35,6 @@ const connectDB = async () => {
   }
 };
 
-// Rutas
 app.get("/", (req, res) => {
   res.send("API de Gestión de Alimentos funcionando!");
 });
@@ -51,10 +46,9 @@ app.use("/api/providers", providerRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/foodentries", foodEntryRoutes);
 app.use("/api/foodplans", foodPlanRoutes);
-app.use("/api/medicalcenters", medicalCenterRoutes); // Usar rutas de centros médicos
-app.use("/api/stock", stockRoutes); // Usar rutas de stock
+app.use("/api/medicalcenters", medicalCenterRoutes);
+app.use("/api/stock", stockRoutes);
 
-// Definir el puerto y arrancar el servidor
 const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {

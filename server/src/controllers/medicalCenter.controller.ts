@@ -4,6 +4,8 @@ import MedicalCenter from "../models/medicalCenter.model";
 import Stock from "../models/stock.model"; // Necesario para el stock
 import { isValidObjectId } from "mongoose";
 import ExcelJS from "exceljs";
+import * as fs from "fs"; // Importar el módulo fs para leer archivos
+import * as path from "path"; // Importar el módulo path para manejar rutas de archivos
 import {
   Document,
   Packer,
@@ -15,6 +17,8 @@ import {
   WidthType,
   VerticalAlign,
   BorderStyle,
+  AlignmentType, // Importado para alineación de texto y contenido
+  ImageRun, // Importado para insertar imágenes
 } from "docx";
 
 // Función auxiliar para manejar errores de validación de Mongoose
@@ -44,12 +48,10 @@ export const createMedicalCenter = async (
 
     // Validación del middleware del modelo para al menos un contacto
     if (!email && !phoneNumber) {
-      res
-        .status(400)
-        .json({
-          message:
-            "Introduzca al menos un método de contacto (correo o teléfono).",
-        });
+      res.status(400).json({
+        message:
+          "Introduzca al menos un método de contacto (correo o teléfono).",
+      });
       return;
     }
 
@@ -113,11 +115,9 @@ export const getAllMedicalCenters = async (
     });
   } catch (error: any) {
     console.error("Error al obtener centros médicos:", error.message);
-    res
-      .status(500)
-      .json({
-        message: "Error interno del servidor al obtener centros médicos.",
-      });
+    res.status(500).json({
+      message: "Error interno del servidor al obtener centros médicos.",
+    });
   }
 };
 
@@ -139,11 +139,9 @@ export const getMedicalCenterById = async (
     res.status(200).json(medicalCenter);
   } catch (error: any) {
     console.error("Error al obtener centro médico por ID:", error.message);
-    res
-      .status(500)
-      .json({
-        message: "Error interno del servidor al obtener centro médico.",
-      });
+    res.status(500).json({
+      message: "Error interno del servidor al obtener centro médico.",
+    });
   }
 };
 
@@ -166,12 +164,10 @@ export const updateMedicalCenter = async (
       !email &&
       !phoneNumber
     ) {
-      res
-        .status(400)
-        .json({
-          message:
-            "Introduzca al menos un método de contacto (correo o teléfono) al actualizar.",
-        });
+      res.status(400).json({
+        message:
+          "Introduzca al menos un método de contacto (correo o teléfono) al actualizar.",
+      });
       return;
     }
 
@@ -220,11 +216,9 @@ export const deleteMedicalCenter = async (
     res.status(200).json({ message: "Centro médico eliminado exitosamente." });
   } catch (error: any) {
     console.error("Error al eliminar centro médico:", error.message);
-    res
-      .status(500)
-      .json({
-        message: "Error interno del servidor al eliminar centro médico.",
-      });
+    res.status(500).json({
+      message: "Error interno del servidor al eliminar centro médico.",
+    });
   }
 };
 
@@ -294,6 +288,11 @@ export const exportMedicalCentersToExcel = async (
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Centros Médicos");
 
+    // --- Colores y Estilos para el informe Excel (similares a Word) ---
+    const headerRowColor = "ADD8E6"; // Azul claro para el fondo de las cabeceras
+    const textColor = "1F4E79"; // Azul oscuro para el texto
+    const borderColor = "4682B4"; // Azul medio para los bordes
+
     worksheet.columns = [
       { header: "Nombre", key: "name", width: 30 },
       { header: "Dirección", key: "address", width: 40 },
@@ -302,8 +301,29 @@ export const exportMedicalCentersToExcel = async (
       { header: "Fecha de Creación", key: "createdAt", width: 20 },
     ];
 
+    // Aplicar estilos a la fila de cabecera
+    const headerRow = worksheet.getRow(1);
+    headerRow.eachCell((cell) => {
+      cell.font = {
+        bold: true,
+        color: { argb: `FF${textColor}` }, // FF para opacidad total
+      };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: `FF${headerRowColor}` }, // FF para opacidad total
+      };
+      cell.border = {
+        top: { style: "thin", color: { argb: `FF${borderColor}` } },
+        left: { style: "thin", color: { argb: `FF${borderColor}` } },
+        bottom: { style: "thin", color: { argb: `FF${borderColor}` } },
+        right: { style: "thin", color: { argb: `FF${borderColor}` } },
+      };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+    });
+
     medicalCenters.forEach((mc) => {
-      worksheet.addRow({
+      const row = worksheet.addRow({
         name: mc.name,
         address: mc.address,
         email: mc.email || "N/A",
@@ -311,6 +331,20 @@ export const exportMedicalCentersToExcel = async (
         createdAt: mc.createdAt
           ? new Date(mc.createdAt).toLocaleString()
           : "N/A",
+      });
+
+      // Aplicar estilos a las celdas de datos
+      row.eachCell((cell) => {
+        cell.font = {
+          color: { argb: `FF${textColor}` },
+        };
+        cell.border = {
+          top: { style: "thin", color: { argb: `FF${borderColor}` } },
+          left: { style: "thin", color: { argb: `FF${borderColor}` } },
+          bottom: { style: "thin", color: { argb: `FF${borderColor}` } },
+          right: { style: "thin", color: { argb: `FF${borderColor}` } },
+        };
+        cell.alignment = { vertical: "middle", horizontal: "left" }; // Alineación por defecto a la izquierda
       });
     });
 
@@ -353,30 +387,60 @@ export const exportMedicalCentersToWord = async (
 
     const medicalCenters = await MedicalCenter.find(query);
 
+    // --- Colores Azulados para el informe ---
+    const textColor = "1F4E79"; // Azul oscuro para el texto
+    const borderColor = "4682B4"; // Azul medio para los bordes
+
+    // Ruta al logo (ajusta esta ruta según donde tengas tu imagen, por ejemplo: server/src/assets/Imagen1.png)
+    const logoPath = path.join(__dirname, "../assets/Imagen1.png");
+    let logoBuffer: Buffer | undefined;
+    let logoUint8Array: Uint8Array | undefined;
+
+    try {
+      logoBuffer = fs.readFileSync(logoPath);
+      logoUint8Array = new Uint8Array(logoBuffer);
+    } catch (logoError) {
+      console.warn(
+        "Advertencia: No se pudo cargar el logo. Asegúrate de que la ruta sea correcta:",
+        logoPath
+      );
+    }
+
+    // Cabeceras de la tabla con colores y alineación (sin sombreado)
+    const tableHeaderCells = [
+      "Nombre",
+      "Dirección",
+      "Correo Electrónico",
+      "Teléfono Fijo",
+      "Fecha de Creación",
+    ].map(
+      (headerText) =>
+        new TableCell({
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: headerText,
+                  bold: true,
+                  color: textColor,
+                }),
+              ],
+              alignment: AlignmentType.CENTER,
+            }),
+          ],
+          verticalAlign: VerticalAlign.CENTER,
+          borders: {
+            top: { style: BorderStyle.SINGLE, size: 8, color: borderColor },
+            bottom: { style: BorderStyle.SINGLE, size: 8, color: borderColor },
+            left: { style: BorderStyle.SINGLE, size: 8, color: borderColor },
+            right: { style: BorderStyle.SINGLE, size: 8, color: borderColor },
+          },
+        })
+    );
+
     const tableRows = [
       new TableRow({
-        children: [
-          new TableCell({
-            children: [new Paragraph({ text: "Nombre" })],
-            verticalAlign: VerticalAlign.CENTER,
-          }),
-          new TableCell({
-            children: [new Paragraph({ text: "Dirección" })],
-            verticalAlign: VerticalAlign.CENTER,
-          }),
-          new TableCell({
-            children: [new Paragraph({ text: "Correo Electrónico" })],
-            verticalAlign: VerticalAlign.CENTER,
-          }),
-          new TableCell({
-            children: [new Paragraph({ text: "Teléfono Fijo" })],
-            verticalAlign: VerticalAlign.CENTER,
-          }),
-          new TableCell({
-            children: [new Paragraph({ text: "Fecha de Creación" })],
-            verticalAlign: VerticalAlign.CENTER,
-          }),
-        ],
+        children: tableHeaderCells,
       }),
     ];
 
@@ -385,28 +449,150 @@ export const exportMedicalCentersToWord = async (
         new TableRow({
           children: [
             new TableCell({
-              children: [new Paragraph(mc.name)],
+              children: [
+                new Paragraph({
+                  children: [new TextRun({ text: mc.name, color: textColor })],
+                }),
+              ],
               verticalAlign: VerticalAlign.CENTER,
-            }),
-            new TableCell({
-              children: [new Paragraph(mc.address)],
-              verticalAlign: VerticalAlign.CENTER,
-            }),
-            new TableCell({
-              children: [new Paragraph(mc.email || "N/A")],
-              verticalAlign: VerticalAlign.CENTER,
-            }),
-            new TableCell({
-              children: [new Paragraph(mc.phoneNumber || "N/A")],
-              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
             }),
             new TableCell({
               children: [
-                new Paragraph(
-                  mc.createdAt ? new Date(mc.createdAt).toLocaleString() : "N/A"
-                ),
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: mc.address, color: textColor }),
+                  ],
+                }),
               ],
               verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({ text: mc.email || "N/A", color: textColor }),
+                  ],
+                }),
+              ],
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: mc.phoneNumber || "N/A",
+                      color: textColor,
+                    }),
+                  ],
+                }),
+              ],
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
+            }),
+            new TableCell({
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: mc.createdAt
+                        ? new Date(mc.createdAt).toLocaleString()
+                        : "N/A",
+                      color: textColor,
+                    }),
+                  ],
+                }),
+              ],
+              verticalAlign: VerticalAlign.CENTER,
+              borders: {
+                top: { style: BorderStyle.SINGLE, size: 4, color: borderColor },
+                bottom: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                left: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+                right: {
+                  style: BorderStyle.SINGLE,
+                  size: 4,
+                  color: borderColor,
+                },
+              },
             }),
           ],
         })
@@ -417,19 +603,93 @@ export const exportMedicalCentersToWord = async (
       sections: [
         {
           children: [
+            // Añadir el logo al principio del documento si está disponible
+            ...(logoUint8Array
+              ? [
+                  new Paragraph({
+                    children: [
+                      new ImageRun({
+                        data: logoUint8Array,
+                        type: "png", // Especificar el tipo de imagen como cadena literal
+                        transformation: {
+                          width: 100,
+                          height: 100,
+                        },
+                      }),
+                    ],
+                    alignment: AlignmentType.CENTER,
+                    spacing: { after: 200 },
+                  }),
+                ]
+              : []),
+            // Título del informe
             new Paragraph({
               children: [
                 new TextRun({
-                  text: "Reporte de Centros Médicos",
+                  text: "Informe de Centros Médicos",
                   bold: true,
-                  size: 32,
+                  size: 48, // Tamaño de fuente en half-points (24pt * 2)
+                  color: textColor,
                 }),
               ],
-              spacing: { after: 200 },
+              alignment: AlignmentType.CENTER,
+              spacing: { after: 400 },
             }),
+            // Título para la tabla
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "Detalles de Centros Médicos",
+                  bold: true,
+                  size: 28, // Tamaño de fuente en half-points (14pt * 2)
+                  color: textColor,
+                }),
+              ],
+              spacing: { before: 200, after: 100 },
+              alignment: AlignmentType.CENTER,
+            }),
+            // Tabla de alimentos
             new Table({
               rows: tableRows,
               width: { size: 100, type: WidthType.PERCENTAGE },
+            }),
+
+            // Sección del analista
+            new Paragraph({
+              alignment: AlignmentType.RIGHT,
+              children: [
+                new TextRun({
+                  text: "_____________________________",
+                  break: 1,
+                  color: textColor,
+                }),
+                new TextRun({
+                  text: "Firma del Responsable",
+                  break: 1,
+                  bold: true,
+                  color: textColor,
+                }),
+                new TextRun({
+                  text: "",
+                  break: 1,
+                  italics: true,
+                  color: textColor,
+                }),
+              ],
+              spacing: { before: 400 },
+            }),
+
+            // Fin del informe
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: "",
+                  bold: true,
+                  color: textColor,
+                }),
+              ],
+              alignment: AlignmentType.CENTER,
+              spacing: { before: 400 },
             }),
           ],
         },

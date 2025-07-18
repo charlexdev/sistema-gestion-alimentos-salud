@@ -1,4 +1,3 @@
-// server/src/routes/medicalCenter.routes.ts
 import { Router } from "express";
 import {
   createMedicalCenter,
@@ -6,9 +5,9 @@ import {
   getMedicalCenterById,
   updateMedicalCenter,
   deleteMedicalCenter,
-  getMedicalCenterStock, // Nueva ruta para ver el stock
-  exportMedicalCentersToExcel, // Para reportes
-  exportMedicalCentersToWord, // Para reportes
+  getMedicalCenterStock,
+  exportMedicalCentersToExcel,
+  exportMedicalCentersToWord,
 } from "../controllers/medicalCenter.controller";
 import {
   authenticateToken,
@@ -17,9 +16,6 @@ import {
 
 const router = Router();
 
-// Rutas para la gestión de Centros Médicos
-
-// Crear Centro Médico (Solo administradores)
 router.post(
   "/",
   authenticateToken,
@@ -27,13 +23,10 @@ router.post(
   createMedicalCenter
 );
 
-// Obtener todos los Centros Médicos (Usuarios autenticados)
 router.get("/", authenticateToken, getAllMedicalCenters);
 
-// Obtener un Centro Médico por ID (Usuarios autenticados)
 router.get("/:id", authenticateToken, getMedicalCenterById);
 
-// Actualizar Centro Médico (Solo administradores)
 router.put(
   "/:id",
   authenticateToken,
@@ -41,7 +34,6 @@ router.put(
   updateMedicalCenter
 );
 
-// Eliminar Centro Médico (Solo administradores)
 router.delete(
   "/:id",
   authenticateToken,
@@ -49,10 +41,8 @@ router.delete(
   deleteMedicalCenter
 );
 
-// Obtener stock de un centro médico por ID (Usuarios autenticados)
-router.get("/:id/stock", authenticateToken, getMedicalCenterStock); // GET /api/medical-centers/:id/stock
+router.get("/:id/stock", authenticateToken, getMedicalCenterStock);
 
-// Rutas de exportación de reportes para Centros Médicos
 router.get("/export/excel", authenticateToken, exportMedicalCentersToExcel);
 router.get("/export/word", authenticateToken, exportMedicalCentersToWord);
 

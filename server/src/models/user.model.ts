@@ -1,14 +1,12 @@
-// src/models/user.model.ts
-
 import { Schema, model, Document } from "mongoose";
 
 export interface IUser extends Document {
   username: string;
   email: string;
   password: string;
-  role: "admin" | "user"; // Roles para permisos
-  createdAt?: Date; // Añadir esto
-  updatedAt?: Date; // Añadir esto
+  role: "admin" | "user";
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const userSchema = new Schema<IUser>(
